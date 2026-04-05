@@ -614,6 +614,35 @@
       }
     }
 
+    // Element Plus el-select support
+    const elSelect = input.closest(".el-select");
+    if (elSelect && !elSelect.classList.contains("is-disabled")) {
+      const wrapper = elSelect.querySelector(".el-input__wrapper");
+      if (wrapper) {
+        return new Promise(resolve => {
+          wrapper.click();
+          const tryPick = (attempt = 0) => {
+            if (attempt > 12) { resolve(); return; }
+            // Element Plus uses .el-select-dropdown with .el-popper
+            const dropdown = document.querySelector(".el-select-dropdown.el-popper:not(.is-hidden)");
+            if (!dropdown) { setTimeout(() => tryPick(attempt + 1), 120); return; }
+            const items = dropdown.querySelectorAll(".el-select-dropdown__item:not(.is-disabled)");
+            const vis = Array.from(items).filter(o => {
+              const r = o.getBoundingClientRect();
+              return r.width > 2 && r.height > 2 && window.getComputedStyle(o).display !== 'none';
+            });
+            if (vis.length > 0) {
+              rand(vis).click();
+              setTimeout(resolve, 80);
+              return;
+            }
+            setTimeout(() => tryPick(attempt + 1), 120);
+          };
+          setTimeout(() => tryPick(0), 150);
+        });
+      }
+    }
+
     let vselect = input.closest(".v-select, .vue-select, div[class*='select']");
     let toggle = input.closest(".vs__dropdown-toggle");
 
@@ -720,7 +749,7 @@
   async function processCustomDropdown(wrapper) {
     if (wrapper.getAttribute("aria-disabled") === "true") return;
 
-    const btn = wrapper.querySelector("button, [role=button], .dropdown-toggle, .ant-select-selector, .react-select__control, .react-select__value-container, .MuiSelect-select, [class*='MuiInputBase']");
+    const btn = wrapper.querySelector("button, [role=button], .dropdown-toggle, .ant-select-selector, .el-select .el-input__wrapper, .react-select__control, .react-select__value-container, .MuiSelect-select, [class*='MuiInputBase']");
     if (!btn || (btn.disabled && btn.getAttribute?.("aria-disabled") !== "true")) return;
     if (btn.disabled && btn.tagName === "BUTTON") return;
 
@@ -728,7 +757,7 @@
       btn.click();
       const tryPick = (attempt = 0) => {
         if (attempt > 8) { resolve(); return; }
-        const selectors = '[role="option"]:not([aria-disabled=true]), .dropdown-item:not(.disabled), .ant-select-item, .react-select__option, .MuiListItem-root, .mat-option, [class*="option"]';
+        const selectors = '[role="option"]:not([aria-disabled=true]), .dropdown-item:not(.disabled), .ant-select-item, .el-select-dropdown__item, .react-select__option, .MuiListItem-root, .mat-option, [class*="option"]';
         const opts = Array.from(document.querySelectorAll(selectors)).filter(o => {
           const r = o.getBoundingClientRect();
           return r.width > 2 && r.height > 2 && getComputedStyle(o).display !== 'none' && !/select|choose|loading/i.test(o.textContent?.trim() || '');
@@ -743,6 +772,45 @@
     });
   }
 
+  // Element Plus el-date-picker support
+  async function processElementPlusDatePicker(input) {
+    if (input.disabled || input.readOnly) return;
+
+    const picker = input.closest(".el-date-editor");
+    if (picker && !picker.classList.contains("is-disabled")) {
+      const wrapper = picker.querySelector(".el-input__wrapper");
+      if (wrapper) {
+        return new Promise(resolve => {
+          wrapper.click();
+
+          const tryPick = (attempt = 0) => {
+            if (attempt > 12) { resolve(); return; }
+
+            // Find date panel
+            const panel = document.querySelector(".el-date-picker__popper:not(.is-hidden)");
+            if (!panel) { setTimeout(() => tryPick(attempt + 1), 150); return; }
+
+            // Find available dates
+            const cells = panel.querySelectorAll(".el-date-table__cell:not(.disabled)");
+            const validCells = Array.from(cells).filter(o => {
+              const r = o.getBoundingClientRect();
+              return r.width > 5 && r.height > 5 && window.getComputedStyle(o).display !== 'none';
+            });
+
+            if (validCells.length > 0) {
+              rand(validCells).click();
+              setTimeout(resolve, 80);
+              return;
+            }
+            setTimeout(() => tryPick(attempt + 1), 120);
+          };
+
+          setTimeout(() => tryPick(0), 150);
+        });
+      }
+    }
+  }
+
   /* --- Collect from document + Shadow DOM (Vue, Angular, Web Components) --- */
   function collectFromRoot(root, list) {
     if (!root || list.seen.has(root)) return;
@@ -754,7 +822,7 @@
       if (el.type === 'file') { list.items.push({ type: 'input', el }); return; }
       const ph = (el.placeholder || "").toLowerCase();
       if (el.classList.contains("flatpickr-input")) list.items.push({ type: 'input', el });
-      else if (ph.includes("select") || el.classList.contains("vs__search") || /vs__search|react-select|ant-select/i.test(el.className)) list.items.push({ type: 'vue-select', el });
+      else if (ph.includes("select") || el.classList.contains("vs__search") || /vs__search|react-select|ant-select|el-input__inner/i.test(el.className)) list.items.push({ type: 'vue-select', el });
       else list.items.push({ type: 'input', el });
     });
     q("textarea").forEach(el => { if (!list.seenEl.has(el)) { list.seenEl.add(el); list.items.push({ type: 'textarea', el }); } });
@@ -770,10 +838,10 @@
       if (hasInput && !list.seenEl.has(hasInput)) { list.seenEl.add(hasInput); list.items.push({ type: 'vue-select', el: hasInput }); }
       else { const btn = el.querySelector("button, [role=button]"); if (btn) list.items.push({ type: 'custom-dropdown', el: el }); }
     });
-    q(".dropdown, .custom-select, .ant-select, .react-select__control, .react-select, .MuiSelect-select, mat-select").forEach(el => {
+    q(".dropdown, .custom-select, .ant-select, .el-select, .el-date-editor, .react-select__control, .react-select, .MuiSelect-select, mat-select").forEach(el => {
       if (list.seenEl.has(el)) return;
       const input = el.querySelector("input:not([type=hidden])");
-      if (input && !list.seenEl.has(input)) { list.seenEl.add(input); list.seenEl.add(el); list.items.push({ type: 'vue-select', el: input }); }
+      if (input && !list.seenEl.has(input)) { list.seenEl.add(input); list.seenEl.add(el); list.items.push({ type: el.classList.contains("el-date-editor") ? 'el-date-picker' : 'vue-select', el: input }); }
       else { const btn = el.querySelector("button, [role=button], .ant-select-selector, .react-select__control, .react-select__value-container"); if (btn) { list.seenEl.add(el); list.items.push({ type: 'custom-dropdown', el: el }); } }
     });
     try { q("*").forEach(el => { if (el.shadowRoot) collectFromRoot(el.shadowRoot, list); }); } catch (err) {}
@@ -849,6 +917,8 @@
           if (set("select")) await withTimeout(processSequentialVueSelect(el), 2000);
         } else if (type === 'custom-dropdown') {
           if (set("select")) await withTimeout(processCustomDropdown(el), 1200);
+        } else if (type === 'el-date-picker') {
+          if (set("date")) await withTimeout(processElementPlusDatePicker(el), 1500);
         } else if (type === 'input') {
           guessAndFillInput(el, set, customRules, phoneFormat, customFilesData);
           if (el.type === 'file') await new Promise(r => setTimeout(r, 150));
