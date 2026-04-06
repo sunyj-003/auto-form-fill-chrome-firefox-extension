@@ -23,4 +23,3 @@ playwright-report/
 
 # MCP
 .playwright-mcp/
-.mcp.json
