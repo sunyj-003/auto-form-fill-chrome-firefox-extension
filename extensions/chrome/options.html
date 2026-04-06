@@ -357,6 +357,11 @@
         </div>
         <p class="setting-hint">Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> twice quickly on any page to fill the form. You can also use the extension icon.</p>
         <div class="setting-row" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <label for="autoFillToggle" class="setting-label" style="font-weight:600;color:var(--accent)">Continuous Auto-Fill (持续自动填充)</label>
+          <div id="autoFillToggle" class="switch" role="switch" aria-checked="false" tabindex="0"></div>
+        </div>
+        <p class="setting-hint">When enabled, automatically fills new forms that appear after clicking "Next" step, page navigation, or AJAX loading.</p>
+        <div class="setting-row" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <label for="phoneFormat" class="setting-label">Phone number format (Bangladesh)</label>
           <select id="phoneFormat" aria-label="Phone format" style="padding:8px 12px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
             <option value="local">Local (01XXXXXXXXX)</option>

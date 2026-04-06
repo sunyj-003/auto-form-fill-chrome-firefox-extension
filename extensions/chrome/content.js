@@ -929,9 +929,141 @@
   }
 
   /* --- Main Execution --- */
+  let autoFillObserver = null;
+  let autoFillState = { _io: null, _fillTimeout: null, _ioCleanup: null, _isFilling: false }; // 独立状态对象
+  let lastUrl = location.href;
+  let filledElements = new WeakSet();
+
+  // 清理自动填充监听器
+  function cleanupAutoFill() {
+    // 清理监听器，但不清空 filledElements（保留已填充记录避免重复填充）
+    if (autoFillState._io) {
+      autoFillState._io.disconnect();
+      autoFillState._io = null;
+    }
+    if (autoFillState._fillTimeout) {
+      clearTimeout(autoFillState._fillTimeout);
+      autoFillState._fillTimeout = null;
+    }
+    if (autoFillState._ioCleanup) {
+      document.removeEventListener('click', autoFillState._ioCleanup, true);
+      autoFillState._ioCleanup = null;
+    }
+    if (autoFillObserver) {
+      autoFillObserver.disconnect();
+      autoFillObserver = null;
+    }
+    window.removeEventListener('popstate', handleNavigation);
+    // 恢复原始的 history 方法
+    if (window.__originalPushState) {
+      history.pushState = window.__originalPushState;
+      window.__originalPushState = null;
+    }
+    if (window.__originalReplaceState) {
+      history.replaceState = window.__originalReplaceState;
+      window.__originalReplaceState = null;
+    }
+  }
+
+  // 处理页面导航
+  function handleNavigation() {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      setTimeout(() => {
+        window.__bengaliFakeFill && window.__bengaliFakeFill();
+      }, 500);
+    }
+  }
+
+  // 启动持续自动填充
+  function startAutoFill(data) {
+    const autoFillEnabled = data.autoFillEnabled;
+    if (!autoFillEnabled) {
+      cleanupAutoFill();
+      return;
+    }
+
+    // 如果已有监听器，先清理再重新设置
+    cleanupAutoFill();
+
+    // 监听 popstate（浏览器导航）
+    window.addEventListener('popstate', handleNavigation);
+
+    // 拦截 history.pushState 和 replaceState（SPA 导航）
+    window.__originalPushState = history.pushState;
+    window.__originalReplaceState = history.replaceState;
+    history.pushState = function(...args) {
+      window.__originalPushState.apply(this, args);
+      setTimeout(() => handleNavigation(), 500);
+    };
+    history.replaceState = function(...args) {
+      window.__originalReplaceState.apply(this, args);
+      setTimeout(() => handleNavigation(), 500);
+    };
+
+    // 使用 IntersectionObserver 检测表单容器是否进入视口
+    // 这比 MutationObserver 更高效，且不会受 Vue 内部更新影响
+    // 注意：当容器持续可见时会持续触发，需要结合 filledElements 检查
+    const formContainers = document.querySelectorAll('form, .form-section, .form-container, [role="form"], .step-content');
+    if (formContainers.length > 0) {
+      const io = new IntersectionObserver((entries) => {
+        // 如果正在填充，跳过
+        if (autoFillState._isFilling) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+            // 检查页面是否有未填充的表单元素
+            const allForms = document.querySelectorAll('input:not([type=hidden]):not([type=file]), select, textarea');
+            let hasUnfilled = false;
+            for (const form of allForms) {
+              const style = form.ownerDocument.defaultView.getComputedStyle(form);
+              if (style && style.display !== 'none' && style.visibility !== 'hidden' && !filledElements.has(form)) {
+                hasUnfilled = true;
+                break;
+              }
+            }
+            // 只有存在未填充元素时才触发
+            if (!hasUnfilled) return;
+            // 容器变得可见，延迟填充
+            clearTimeout(autoFillState._fillTimeout);
+            autoFillState._fillTimeout = setTimeout(() => {
+              autoFillState._isFilling = true;
+              window.__bengaliFakeFill && window.__bengaliFakeFill();
+              setTimeout(() => { autoFillState._isFilling = false; }, 2000);
+            }, 800);
+            break;
+          }
+        }
+      }, { threshold: [0.1] });
+
+      formContainers.forEach(container => io.observe(container));
+      autoFillState._io = io;
+    }
+
+    // 也监听常见的"下一步"按钮点击事件
+    const nextBtnClickHandler = function(e) {
+      // 如果正在填充，跳过
+      if (autoFillState._isFilling) return;
+      const text = e.target.textContent?.toLowerCase() || '';
+      const id = e.target.id?.toLowerCase() || '';
+      const nextBtn = text.includes('下一步') || text.includes('next') ||
+                      text.includes('继续') || text.includes('continue') ||
+                      id.includes('next');
+      if (nextBtn) {
+        clearTimeout(autoFillState._fillTimeout);
+        autoFillState._fillTimeout = setTimeout(() => {
+          autoFillState._isFilling = true;
+          window.__bengaliFakeFill && window.__bengaliFakeFill();
+          setTimeout(() => { autoFillState._isFilling = false; }, 2000);
+        }, 1000);
+      }
+    };
+    document.addEventListener('click', nextBtnClickHandler, true);
+    autoFillState._ioCleanup = nextBtnClickHandler;
+  }
+
   window.__bengaliFakeFill = async function () {
     const r = await new Promise(res => {
-      chrome.storage.sync.get(["formSettings", "customRules", "phoneFormat"], (data) => {
+      chrome.storage.sync.get(["formSettings", "customRules", "phoneFormat", "autoFillEnabled"], (data) => {
         res(data);
       });
     });
@@ -950,8 +1082,11 @@
     await collectFromRoot(document, list);
     const allElements = list.items;
 
+    // Filter out already filled elements
+    const newElements = allElements.filter(item => !filledElements.has(item.el));
+
     // Sort visible order
-    allElements.sort((a, b) => {
+    newElements.sort((a, b) => {
       const rectA = a.el.getBoundingClientRect();
       const rectB = b.el.getBoundingClientRect();
       const topDiff = (rectA.top + window.scrollY) - (rectB.top + window.scrollY);
@@ -962,7 +1097,7 @@
     // Unique
     const uniqueElements = [];
     const seen = new Set();
-    for (const item of allElements) {
+    for (const item of newElements) {
       if (!seen.has(item.el)) { seen.add(item.el); uniqueElements.push(item); }
     }
 
@@ -987,8 +1122,14 @@
       const inElementPlus = el.classList.contains('el-input__wrapper') ||
                             el.classList.contains('el-textarea__inner') ||
                             el.classList.contains('el-checkbox__input') ||
-                            el.tagName === 'INPUT';
-      if (el.offsetParent === null && type !== 'vue-select' && el.type !== 'file' && !inElementPlus) continue;
+                            el.classList.contains('el-select__wrapper') ||
+                            el.classList.contains('el-date-editor');
+      // Check if element is visible - also allow display:none for dynamic forms
+      const style = el.style;
+      const computedStyle = el.ownerDocument?.defaultView?.getComputedStyle(el);
+      const isHidden = (el.offsetParent === null && !inElementPlus) ||
+                       (computedStyle && computedStyle.display === 'none');
+      if (isHidden && type !== 'vue-select' && el.type !== 'file' && !inElementPlus) continue;
       if ((el.disabled || el.readOnly) && !el.classList.contains("flatpickr-input") && type !== 'vue-select') continue;
 
       smoothScrollTo(el);
@@ -1007,12 +1148,53 @@
           if (set("date")) await withTimeout(processElementPlusDatePicker(el), 1500);
         } else if (type === 'el-checkbox') {
           if (set("checkbox")) {
-            // Check the checkbox
+            // Element Plus checkbox - use comprehensive approach
+            const wrapper = el.closest('.el-checkbox');
+
+            // Step 1: Try clicking the input directly
+            el.click();
+            await new Promise(r => setTimeout(r, 20));
+
+            // Step 2: If not checked, try clicking the wrapper
+            if (!el.checked && wrapper) {
+              wrapper.click();
+              await new Promise(r => setTimeout(r, 20));
+            }
+
+            // Step 3: Force check via property and events
             if (!el.checked) {
               el.checked = true;
-              el.dispatchEvent(new Event("change", { bubbles: true }));
-              el.dispatchEvent(new Event("click", { bubbles: true }));
+              el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
             }
+
+            // Step 4: Vue 3 internal API as last resort
+            try {
+              const vueApp = document.querySelector('#elementPlusApp');
+              if (vueApp && vueApp.__vue_app__) {
+                const formData = vueApp.__vue_app__._instance.proxy.form;
+                if ('agree' in formData) formData.agree = true;
+              }
+            } catch (e) {}
+
+            // Step 5: Final verification with multiple attempts
+            for (let i = 0; i < 5; i++) {
+              if (el.checked) {
+                try {
+                  const vueApp = document.querySelector('#elementPlusApp');
+                  if (vueApp && vueApp.__vue_app__) {
+                    const formData = vueApp.__vue_app__._instance.proxy.form;
+                    if ('agree' in formData) formData.agree = true;
+                  }
+                } catch (e) {}
+                break;
+              }
+              el.checked = true;
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+              await new Promise(r => setTimeout(r, 30));
+            }
+
+            await new Promise(r => setTimeout(r, 100));
           }
         } else if (type === 'input') {
           guessAndFillInput(el, set, customRules, phoneFormat, customFilesData);
@@ -1060,6 +1242,17 @@
         el.style.boxShadow = originalShadow;
         el.style.transition = originalTrans;
       }, 300);
+
+      // Mark element as filled
+      filledElements.add(el);
+    }
+
+    // 启动持续自动填充（如果设置中启用）
+    const autoFillEnabled = r.autoFillEnabled;
+    if (autoFillEnabled) {
+      startAutoFill(r);
+    } else {
+      cleanupAutoFill();
     }
 
     if (set("radio")) fillRadiosByGroup();
@@ -1074,8 +1267,25 @@
     shortcutEnabled = enabled !== false;
   }
   chrome.storage.sync.get('shortcutEnabled', (r) => updateShortcut(r.shortcutEnabled));
+
+  // 监听设置变化
+  chrome.storage.sync.get('autoFillEnabled', (r) => {
+    if (r.autoFillEnabled) {
+      startAutoFill(r);
+    }
+  });
+
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'sync' && changes.shortcutEnabled) updateShortcut(changes.shortcutEnabled.newValue);
+    if (area === 'sync') {
+      if (changes.shortcutEnabled) updateShortcut(changes.shortcutEnabled.newValue);
+      if (changes.autoFillEnabled) {
+        if (changes.autoFillEnabled.newValue) {
+          startAutoFill({ autoFillEnabled: true });
+        } else {
+          cleanupAutoFill();
+        }
+      }
+    }
   });
 
   window.addEventListener("keydown", (e) => {

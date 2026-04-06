@@ -1,4 +1,5 @@
 const SHORTCUT_KEY = 'shortcutEnabled';
+const AUTO_FILL_KEY = 'autoFillEnabled';
 const FORM_KEYS = ['name', 'email', 'phone', 'address', 'company', 'date', 'checkbox', 'radio', 'select', 'textarea', 'number', 'password', 'url', 'nid', 'file'];
 const STORAGE_KEY = 'formSettings';
 const RULES_KEY = 'customRules';
@@ -17,13 +18,20 @@ function showToast(msg) {
 const PHONE_FORMAT_KEY = 'phoneFormat';
 
 function load() {
-  chrome.storage.sync.get([SHORTCUT_KEY, STORAGE_KEY, RULES_KEY, PHONE_FORMAT_KEY], (r) => {
+  chrome.storage.sync.get([SHORTCUT_KEY, AUTO_FILL_KEY, STORAGE_KEY, RULES_KEY, PHONE_FORMAT_KEY], (r) => {
     if (chrome.runtime?.lastError) return;
     const shortcutEl = document.getElementById('shortcutToggle');
     if (shortcutEl) {
       const on = r[SHORTCUT_KEY] !== false;
       shortcutEl.classList.toggle('on', on);
       shortcutEl.setAttribute('aria-checked', on);
+    }
+    // 加载持续自动填充开关状态
+    const autoFillEl = document.getElementById('autoFillToggle');
+    if (autoFillEl) {
+      const on = r[AUTO_FILL_KEY] === true;
+      autoFillEl.classList.toggle('on', on);
+      autoFillEl.setAttribute('aria-checked', on);
     }
     const settings = r[STORAGE_KEY] || {};
     const phoneFormatEl = document.getElementById('phoneFormat');
@@ -152,7 +160,7 @@ if (phoneFormatEl) phoneFormatEl.addEventListener('change', function () {
 
 if (shortcutEl) {
   shortcutEl.addEventListener('click', function () {
-    const on = !this.classList.toggle('on');
+    const on = this.classList.toggle('on');
     this.setAttribute('aria-checked', on);
     chrome.storage.sync.set({ [SHORTCUT_KEY]: on }, () => {
       if (chrome.runtime?.lastError) showToast('Save failed');
@@ -160,6 +168,22 @@ if (shortcutEl) {
     });
   });
   shortcutEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+  });
+}
+
+// ——— 持续自动填充开关 ———
+const autoFillEl = document.getElementById('autoFillToggle');
+if (autoFillEl) {
+  autoFillEl.addEventListener('click', function () {
+    const on = this.classList.toggle('on');
+    this.setAttribute('aria-checked', on);
+    chrome.storage.sync.set({ [AUTO_FILL_KEY]: on }, () => {
+      if (chrome.runtime?.lastError) showToast('Save failed');
+      else showToast(on ? 'Auto-fill enabled' : 'Auto-fill disabled');
+    });
+  });
+  autoFillEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
   });
 }

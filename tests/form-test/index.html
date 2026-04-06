@@ -33,6 +33,9 @@
   <script src="https://unpkg.com/select2@4/dist/js/select2.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/select2@4/dist/css/select2.min.css">
 
+  <!-- Day.js for Element Plus -->
+  <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f5f5f5; }
@@ -310,6 +313,98 @@
         </div>
       </div>
     </div>
+
+    <!-- 7. 动态加载表单 - 多步向导 -->
+    <div class="form-section">
+      <h2>7. 动态加载表单 - 多步向导</h2>
+      <p class="setting-hint">点击下一步加载新表单，测试动态填充</p>
+
+      <!-- Step 1 -->
+      <div id="step-1" class="form-section" style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+        <h3>步骤 1: 基本信息</h3>
+        <div class="form-row">
+          <div class="form-item">
+            <label>姓名</label>
+            <input type="text" id="dynamic-name-1" placeholder="请输入姓名">
+          </div>
+          <div class="form-item">
+            <label>邮箱</label>
+            <input type="email" id="dynamic-email-1" placeholder="example@mail.com">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 (初始隐藏) -->
+      <div id="step-2" class="form-section" style="background: #f0fff0; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: none;">
+        <h3>步骤 2: 联系方式</h3>
+        <div class="form-row">
+          <div class="form-item">
+            <label>电话</label>
+            <input type="tel" id="dynamic-phone-2" placeholder="请输入电话">
+          </div>
+          <div class="form-item">
+            <label>地址</label>
+            <input type="text" id="dynamic-address-2" placeholder="请输入地址">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 (初始隐藏) -->
+      <div id="step-3" class="form-section" style="background: #fff0f0; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: none;">
+        <h3>步骤 3: 附加信息</h3>
+        <div class="form-row">
+          <div class="form-item">
+            <label>公司</label>
+            <input type="text" id="dynamic-company-3" placeholder="请输入公司">
+          </div>
+          <div class="form-item">
+            <label>职位</label>
+            <input type="text" id="dynamic-position-3" placeholder="请输入职位">
+          </div>
+        </div>
+      </div>
+
+      <button id="nextStepBtn" class="test-btn" data-action="nextStep">下一步 →</button>
+    </div>
+
+    <!-- 8. 模拟页面导航 -->
+    <div class="form-section">
+      <h2>8. 模拟页面导航 (SPA)</h2>
+      <p class="setting-hint">点击导航按钮切换页面，测试页面跳转后的填充</p>
+
+      <div id="nav-page-1" class="nav-page" style="background: #fdf6e3; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+        <h3>页面 1: 登录</h3>
+        <div class="form-row">
+          <div class="form-item">
+            <label>用户名</label>
+            <input type="text" id="nav-username" placeholder="请输入用户名">
+          </div>
+          <div class="form-item">
+            <label>密码</label>
+            <input type="password" id="nav-password" placeholder="请输入密码">
+          </div>
+        </div>
+      </div>
+
+      <div id="nav-page-2" class="nav-page" style="background: #e6f3ff; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: none;">
+        <h3>页面 2: 注册信息</h3>
+        <div class="form-row">
+          <div class="form-item">
+            <label>真实姓名</label>
+            <input type="text" id="nav-realname" placeholder="请输入真实姓名">
+          </div>
+          <div class="form-item">
+            <label>手机号</label>
+            <input type="tel" id="nav-phone" placeholder="请输入手机号">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button id="prevNavBtn" class="test-btn" data-action="prevNav" disabled>← 上一页</button>
+        <button id="nextNavBtn" class="test-btn" data-action="nextNav">下一页 →</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -337,27 +432,35 @@
     });
     elementPlusApp.use(ElementPlus);
     elementPlusApp.mount('#elementPlusApp');
-    document.getElementById('app').style.display = 'block';
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.style.display = 'block';
 
     // ==================== 3. Ant Design Vue ====================
-    const antdApp = createApp({
-      setup() {
-        const form = reactive({
-          username: '',
-          email: '',
-          password: '',
-          phone: '',
-          age: 18,
-          bio: '',
-          gender: undefined,
-          country: undefined,
-          agree: false
+    // 注意：Ant Design Vue 4.x CDN 可能有兼容性问题，包裹在 try-catch 中
+    try {
+      if (typeof Antd !== 'undefined') {
+        const antdApp = createApp({
+          setup() {
+            const form = reactive({
+              username: '',
+              email: '',
+              password: '',
+              phone: '',
+              age: 18,
+              bio: '',
+              gender: undefined,
+              country: undefined,
+              agree: false
+            });
+            return { form };
+          }
         });
-        return { form };
+        antdApp.use(Antd);
+        antdApp.mount('#antdApp');
       }
-    });
-    antdApp.use(Antd);
-    antdApp.mount('#antdApp');
+    } catch (e) {
+      console.warn('Ant Design Vue initialization skipped:', e);
+    }
 
     // ==================== 4. React Select ====================
     function initReactSelect() {
@@ -400,6 +503,55 @@
       $('.select2').select2({ placeholder: '请选择', allowClear: true });
     });
 
+    // ==================== 动态表单测试 ====================
+    window.__testState = window.__testState || {};
+    let step = window.__testState.step || 1;
+    window.__testState.step = step;
+
+    window.showNextStep = function() {
+      step = (step || 1) + 1;
+      window.__testState.step = step;
+      const nextStep = document.getElementById('step-' + step);
+      if (nextStep) {
+        nextStep.style.display = 'block';
+        window.dispatchEvent(new CustomEvent('form-loaded'));
+      }
+      if (step >= 3) {
+        const btn = document.getElementById('nextStepBtn');
+        if (btn) btn.style.display = 'none';
+      }
+    };
+
+    // 模拟页面导航
+    window.__testState.navStep = window.__testState.navStep || 1;
+    let navStep = window.__testState.navStep;
+    window.__testState.navStep = navStep;
+
+    window.navigateToPage = function(pageNum) {
+      document.querySelectorAll('.nav-page').forEach(p => p.style.display = 'none');
+      const target = document.getElementById('nav-page-' + pageNum);
+      if (target) {
+        target.style.display = 'block';
+        window.dispatchEvent(new CustomEvent('form-loaded'));
+      }
+      navStep = pageNum;
+      window.__testState.navStep = navStep;
+      const prevBtn = document.getElementById('prevNavBtn');
+      const nextBtn = document.getElementById('nextNavBtn');
+      if (prevBtn) prevBtn.disabled = navStep <= 1;
+      if (nextBtn) nextBtn.disabled = navStep >= 2;
+    };
+
+    function simulateNav(url) {
+      history.pushState({}, '', url);
+      window.dispatchEvent(new CustomEvent('spa-navigate', { detail: { url } }));
+      window.dispatchEvent(new CustomEvent('form-loaded'));
+    }
+
+    // 确保函数在 onclick 调用前已定义
+    window.showNextStep = window.showNextStep || function() {};
+    window.navigateToPage = window.navigateToPage || function() {};
+
     // ==================== 键盘快捷键 ====================
     document.addEventListener('keydown', function(e) {
       // Ctrl+Shift+V 然后 V 触发填充
@@ -420,6 +572,20 @@
           vPressed = true;
           setTimeout(() => vPressed = false, 500);
         }
+      }
+    });
+
+    // 按钮事件处理（替代 onclick 属性）
+    document.addEventListener('click', function(e) {
+      const action = e.target.dataset?.action;
+      if (action === 'nextStep' && window.showNextStep) {
+        window.showNextStep();
+      } else if (action === 'prevNav' && window.navigateToPage) {
+        const state = window.__testState || {};
+        window.navigateToPage((state.navStep || 1) - 1);
+      } else if (action === 'nextNav' && window.navigateToPage) {
+        const state = window.__testState || {};
+        window.navigateToPage((state.navStep || 1) + 1);
       }
     });
   </script>

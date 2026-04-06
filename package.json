@@ -2,7 +2,9 @@
   "name": "auto-form-fill-test",
   "version": "1.0.0",
   "scripts": {
-    "test": "node test-manual.js"
+    "test": "node test-manual.js",
+    "lint": "node --check extensions/chrome/content.js && echo 'Syntax OK'",
+    "lint:fix": "node --check extensions/chrome/content.js"
   },
   "dependencies": {
     "playwright": "^1.59.0"
