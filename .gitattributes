@@ -3,5 +3,5 @@
 
 # Exclude packaging artifacts
 *.zip export-ignore
-Chrome-Extension/*.zip export-ignore
+extensions/chrome/*.zip export-ignore
 Mozile-Extension/*.zip export-ignore

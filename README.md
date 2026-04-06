@@ -18,7 +18,7 @@ Browser extension that fills web forms with realistic fake data. Available for C
 ### Chrome
 1. Go to `chrome://extensions`
 2. Turn on **Developer mode**
-3. **Load unpacked** → select `Chrome-Extension` folder
+3. **Load unpacked** → select `extensions/chrome` folder
 
 ### Firefox
 1. Go to `about:debugging#/runtime/this-firefox`
@@ -41,14 +41,17 @@ Or download from [Firefox Add-ons (AMO)](https://addons.mozilla.org/en-US/firefo
 ## Project Structure
 
 ```
-├── Chrome-Extension/   # Chrome (Manifest V3)
-├── Mozile-Extension/   # Firefox (Manifest V2)
+├── extensions/
+│   ├── chrome/   # Chrome (Manifest V3)
+│   └── firefox/  # Firefox (Manifest V2)
+├── Mozile-Extension/   # Firefox (old location, for compatibility)
+└── tests/        # Test files
 ```
 
 ## Publishing
 
 ### Chrome Web Store
-Package `Chrome-Extension` folder (exclude dev files) and upload to Chrome Web Store.
+Package `extensions/chrome` folder (exclude dev files) and upload to Chrome Web Store.
 
 ### Firefox Add-ons (AMO)
 Package `Mozile-Extension` folder and submit to addons.mozilla.org. Includes required `data_collection_permissions` for AMO compliance.
