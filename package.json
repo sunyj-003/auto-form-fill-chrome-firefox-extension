@@ -2,7 +2,10 @@
   "name": "auto-form-fill-test",
   "version": "1.0.0",
   "scripts": {
-    "test": "node test-manual.js",
+    "dev": "npx http-server tests/form-test -p 5173 -c-1",
+    "test": "npx playwright test",
+    "test:e2e": "npx playwright test tests/e2e",
+    "test:naive": "npx playwright test tests/e2e/naive-ui.spec.js",
     "lint": "node --check extensions/chrome/content.js && echo 'Syntax OK'",
     "lint:fix": "node --check extensions/chrome/content.js"
   },
@@ -10,6 +13,7 @@
     "playwright": "^1.59.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "http-server": "^14.1.1"
   }
 }

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表单自动填充测试 - Naive UI</title>
+
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <!-- Naive UI -->
+  <script src="https://unpkg.com/naive-ui/dist/naive-ui.umd.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/naive-ui/dist/index.css">
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #333; margin-bottom: 30px; }
+    h2 { color: #666; margin: 30px 0 15px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+    .form-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+    .form-item { flex: 1; min-width: 200px; }
+    .form-item label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
+    button.test-btn { background: #18a058; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 20px 0; }
+    button.test-btn:hover { background: #149b4c; }
+    button.trigger-btn { background: #2080f0; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+    button.trigger-btn:hover { background: #4098fc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>表单自动填充测试 - Naive UI 框架</h1>
+    <button class="test-btn" onclick="window.__bengaliFakeFill && window.__bengaliFakeFill()">🎯 点击填充表单 (快捷键: Ctrl+Shift+V 然后 V)</button>
+
+    <!-- 1. Naive UI 表单组件 (非弹窗) -->
+    <div class="form-section">
+      <h2>1. Naive UI 表单组件 (非弹窗)</h2>
+      <div id="app-normal">
+        <n-form>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="用户名">
+                <n-input id="naive-username" placeholder="请输入用户名" />
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="邮箱">
+                <n-input id="naive-email" placeholder="example@mail.com" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="密码">
+                <n-input id="naive-password" type="password" placeholder="请输入密码" />
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="电话">
+                <n-input id="naive-phone" placeholder="请输入电话号码" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="国家">
+                <n-select id="naive-country" :options="countryOptions" placeholder="请选择国家" />
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="城市">
+                <n-select id="naive-city" :options="cityOptions" placeholder="请选择城市" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="简介">
+                <n-input id="naive-bio" type="textarea" placeholder="请输入个人简介" :rows="2" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item>
+                <n-checkbox id="naive-agree">我同意服务条款</n-checkbox>
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="性别">
+                <n-radio-group id="naive-gender">
+                  <n-radio value="male">男</n-radio>
+                  <n-radio value="female">女</n-radio>
+                </n-radio-group>
+              </n-form-item>
+            </div>
+          </div>
+        </n-form>
+      </div>
+    </div>
+
+    <!-- 2. Naive UI 弹窗表单 -->
+    <div class="form-section">
+      <h2>2. Naive UI 弹窗 (Modal)</h2>
+      <button class="trigger-btn" @click="showModal = true">打开弹窗</button>
+
+      <n-modal id="test-modal" v-model:show="showModal" preset="card" title="弹窗表单" style="width: 600px;">
+        <n-form>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="姓名">
+                <n-input id="modal-name" placeholder="请输入姓名" />
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="邮箱">
+                <n-input id="modal-email" placeholder="example@mail.com" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="部门">
+                <n-select id="modal-dept" :options="deptOptions" placeholder="请选择部门" />
+              </n-form-item>
+            </div>
+            <div class="form-item">
+              <n-form-item label="职位">
+                <n-select id="modal-position" :options="positionOptions" placeholder="请选择职位" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item>
+                <n-checkbox id="modal-newsletter">订阅 newsletter</n-checkbox>
+              </n-form-item>
+            </div>
+          </div>
+        </n-form>
+        <template #footer>
+          <n-button @click="showModal = false">取消</n-button>
+          <n-button type="primary" @click="showModal = false">确定</n-button>
+        </template>
+      </n-modal>
+    </div>
+
+    <!-- 3. Naive UI 抽屉 (Drawer) -->
+    <div class="form-section">
+      <h2>3. Naive UI 抽屉 (Drawer)</h2>
+      <button class="trigger-btn" @click="showDrawer = true">打开抽屉</button>
+
+      <n-drawer v-model:show="showDrawer" :width="500" placement="right">
+        <n-drawer-block-title>抽屉表单</n-drawer-block-title>
+        <n-drawer-content>
+          <n-form>
+            <div class="form-row">
+              <div class="form-item">
+                <n-form-item label="用户名">
+                  <n-input id="drawer-username" placeholder="请输入用户名" />
+                </n-form-item>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-item">
+                <n-form-item label="邮箱">
+                  <n-input id="drawer-email" placeholder="example@mail.com" />
+                </n-form-item>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-item">
+                <n-form-item label="备注">
+                  <n-input id="drawer-note" type="textarea" placeholder="请输入备注" :rows="3" />
+                </n-form-item>
+              </div>
+            </div>
+          </n-form>
+        </n-drawer-content>
+      </n-drawer>
+    </div>
+
+    <!-- 4. 多层嵌套弹窗测试 -->
+    <div class="form-section">
+      <h2>4. 多层嵌套弹窗测试</h2>
+      <button class="trigger-btn" @click="showOuterModal = true">打开外层弹窗</button>
+      <button class="trigger-btn" @click="showInnerModal = true">打开内层弹窗</button>
+
+      <!-- 外层弹窗 -->
+      <n-modal id="outer-modal" v-model:show="showOuterModal" preset="card" title="外层弹窗" style="width: 500px;">
+        <n-form>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="外层姓名">
+                <n-input id="outer-name" placeholder="请输入姓名" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="外层备注">
+                <n-input id="outer-note" type="textarea" placeholder="请输入备注" :rows="2" />
+              </n-form-item>
+            </div>
+          </div>
+        </n-form>
+        <template #footer>
+          <n-button @click="showOuterModal = false">关闭</n-button>
+        </template>
+      </n-modal>
+
+      <!-- 内层弹窗 -->
+      <n-modal id="inner-modal" v-model:show="showInnerModal" preset="dialog" title="内层弹窗">
+        <n-form>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="内层姓名">
+                <n-input id="inner-name" placeholder="请输入姓名" />
+              </n-form-item>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-item">
+              <n-form-item label="内层邮箱">
+                <n-input id="inner-email" placeholder="example@mail.com" />
+              </n-form-item>
+            </div>
+          </div>
+        </n-form>
+      </n-modal>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+    const { NInput, NSelect, NCheckbox, NRadioGroup, NRadio, NModal, NButton, NForm, NFormItem, NDrawer, NDrawerBlockTitle, NDrawerContent } = naive;
+
+    // 正常页面表单
+    createApp({
+      components: { NInput, NSelect, NCheckbox, NRadioGroup, NRadio, NForm, NFormItem },
+      setup() {
+        const countryOptions = [
+          { label: '中国', value: 'china' },
+          { label: '美国', value: 'usa' },
+          { label: '英国', value: 'uk' },
+          { label: '日本', value: 'japan' },
+          { label: '韩国', value: 'korea' }
+        ];
+        const cityOptions = [
+          { label: '北京', value: 'beijing' },
+          { label: '上海', value: 'shanghai' },
+          { label: '广州', value: 'guangzhou' },
+          { label: '深圳', value: 'shenzhen' },
+          { label: '杭州', value: 'hangzhou' }
+        ];
+        return { countryOptions, cityOptions };
+      }
+    }).use(naive).mount('#app-normal');
+
+    // 弹窗和抽屉
+    createApp({
+      components: { NInput, NSelect, NCheckbox, NRadioGroup, NRadio, NModal, NButton, NForm, NFormItem, NDrawer, NDrawerBlockTitle, NDrawerContent },
+      setup() {
+        const showModal = ref(false);
+        const showDrawer = ref(false);
+        const showOuterModal = ref(false);
+        const showInnerModal = ref(false);
+
+        const deptOptions = [
+          { label: '技术部', value: 'tech' },
+          { label: '市场部', value: 'marketing' },
+          { label: '销售部', value: 'sales' },
+          { label: '人事部', value: 'hr' }
+        ];
+        const positionOptions = [
+          { label: '经理', value: 'manager' },
+          { label: '主管', value: 'supervisor' },
+          { label: '员工', value: 'staff' },
+          { label: '实习生', value: 'intern' }
+        ];
+
+        return { showModal, showDrawer, showOuterModal, showInnerModal, deptOptions, positionOptions };
+      }
+    }).use(naive).mount('body');
+  </script>
+</body>
+</html>
