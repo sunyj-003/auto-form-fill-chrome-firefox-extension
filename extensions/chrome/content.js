@@ -813,18 +813,90 @@
     console.log('processCustomDropdown called for:', wrapper.className?.slice(0, 30));
   }
 
-  // Naive UI 选择器专用处理函数 - 简单直接
+  // Naive UI 选择器专用处理函数
   async function processNaiveUISelect(el) {
-    console.log('Naive UI select 处理:', el.className?.slice(0, 30));
+    // 获取选择框的标签（用于日志）
+    let selectLabel = '';
+    try {
+      const formItem = el.closest('.n-form-item');
+      if (formItem) {
+        const labelEl = formItem.querySelector('.n-form-item-label__text, .n-form-item-label');
+        if (labelEl) selectLabel = ' - ' + labelEl.textContent.trim().slice(0, 20);
+      }
+    } catch(e) {}
+    console.log('Naive UI select 处理:' + selectLabel, el.className?.slice(0, 40));
+    // 记录选择前的状态
+    const prevText = el.textContent.trim();
     try {
       // 1. 点击打开下拉菜单
       el.click();
-      await new Promise(r => setTimeout(r, 300));
 
-      // 2. 查找下拉菜单
-      let dropdown = document.querySelector(".v-binder-follower-content");
+      // 2. 等待菜单展开 - 使用轮询等待菜单出现
+      let dropdown = null;
+      const maxWait = 2000; // 增加等待时间
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWait && !dropdown) {
+        await new Promise(r => setTimeout(r, 200));
+
+        // 查找 v-binder-follower-content 中的菜单
+        const followers = document.querySelectorAll(".v-binder-follower-content");
+        for (const f of followers) {
+          const menu = f.querySelector(".n-base-select-menu");
+          if (menu) {
+            const style = window.getComputedStyle(menu);
+            // 找到第一个显示的菜单
+            if (!style.display || style.display !== 'none') {
+              dropdown = menu;
+              break;
+            }
+          }
+        }
+
+        // 如果没找到，等待一下让虚拟列表加载
+        if (!dropdown) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+
+      // 如果菜单找到了但没选项，等一会儿让虚拟列表加载
+      if (dropdown) {
+        let checkOptions = dropdown.querySelectorAll(".n-base-select-option__content");
+        if (checkOptions.length === 0) {
+          console.log('Naive UI: 等待虚拟列表加载...');
+          await new Promise(r => setTimeout(r, 800));
+
+          // 关键: 重新查找菜单和虚拟列表，因为之前的dropdown可能已失效
+          const newFollowers = document.querySelectorAll(".v-binder-follower-content");
+          for (const f of newFollowers) {
+            const menu = f.querySelector(".n-base-select-menu");
+            if (menu) {
+              const style = window.getComputedStyle(menu);
+              if (style.display !== 'none') {
+                dropdown = menu;
+                break;
+              }
+            }
+          }
+
+          // 重新查找选项
+          checkOptions = dropdown.querySelectorAll(".n-base-select-option__content");
+          console.log('Naive UI: 重新查找直接选项:', checkOptions.length);
+
+          if (checkOptions.length === 0) {
+            const vl = dropdown.querySelector('.v-vl-visible-items');
+            if (vl) {
+              checkOptions = vl.querySelectorAll(".n-base-select-option__content");
+              console.log('Naive UI: 虚拟列表加载后选项数:', checkOptions.length);
+            }
+          }
+        }
+      }
+
       if (!dropdown) {
-        dropdown = document.querySelector(".n-base-select-menu, .n-select-menu, [class*='select-menu']");
+        // 最后尝试直接查找
+        dropdown = document.querySelector(".n-base-select-menu");
+        console.log('Naive UI: 最后尝试查找菜单');
       }
 
       if (!dropdown) {
@@ -832,33 +904,113 @@
         return;
       }
 
-      // 检查可见性
-      const style = window.getComputedStyle(dropdown);
-      if (style.display === 'none' || style.visibility === 'hidden') {
-        console.log('Naive UI: 下拉菜单不可见');
-        return;
+      console.log('Naive UI: 找到下拉菜单');
+
+      // 3. 强制重新查找菜单 - 关键！
+      await new Promise(r => setTimeout(r, 300));
+      let visibleMenu = null;
+      const allFollowers = document.querySelectorAll(".v-binder-follower-content");
+      for (const f of allFollowers) {
+        const menu = f.querySelector(".n-base-select-menu");
+        if (menu) {
+          const style = window.getComputedStyle(menu);
+          if (style.display !== 'none') {
+            visibleMenu = menu;
+            break;
+          }
+        }
+      }
+      if (!visibleMenu) visibleMenu = dropdown;
+
+      // 4. 查找选项 - 必须支持虚拟列表
+      let options = visibleMenu.querySelectorAll(".n-base-select-option__content");
+      console.log('Naive UI: 直接选项数:', options.length);
+
+      // 关键: 虚拟列表在 v-vl-visible-items 中
+      const vl = visibleMenu.querySelector('.v-vl-visible-items');
+      if (vl) {
+        const vlOptions = vl.querySelectorAll(".n-base-select-option__content");
+        console.log('Naive UI: 虚拟列表选项数:', vlOptions.length);
+        if (vlOptions.length > 0) {
+          options = vlOptions;
+        }
+      } else if (options.length === 0) {
+        // 再尝试一次直接查找
+        options = visibleMenu.querySelectorAll(".n-base-select-option__content");
       }
 
-      // 3. 查找选项
-      const options = dropdown.querySelectorAll(".n-base-select-option, .n-select-option, .n-option");
       const validOptions = Array.from(options).filter(o => {
-        const oStyle = window.getComputedStyle(o);
-        return oStyle.display !== 'none' && oStyle.visibility !== 'hidden' && !o.classList.contains('disabled');
+        const parent = o.closest('.n-base-select-option');
+        if (!parent) return false;
+        const oStyle = window.getComputedStyle(parent);
+        // 过滤分页信息、disabled项
+        const text = o.textContent?.trim() || '';
+        if (/^\d+\s*\/\s*\页$/.test(text)) return false; // 跳过 "6 / 页" 这样的分页信息
+        return oStyle.display !== 'none' && oStyle.visibility !== 'hidden' && !parent.classList.contains('disabled');
       });
 
+      console.log('Naive UI: 有效选项数:', validOptions.length);
+
       if (validOptions.length > 0) {
-        // 4. 随机选择一项
-        const randomOption = validOptions[Math.floor(Math.random() * validOptions.length)];
-        randomOption.scrollIntoView({ block: "nearest" });
-        randomOption.click();
-        await new Promise(r => setTimeout(r, 200));
-        console.log('Naive UI: 已选择选项');
+        // 4. 随机选择一项（跳过第1个，可能是分页）
+        let idx = Math.floor(Math.random() * validOptions.length);
+        if (validOptions.length > 1 && idx === 0) idx = 1; // 跳过第一个
+        const randomOption = validOptions[idx];
+        const optionText = randomOption.textContent.trim();
+        console.log('Naive UI: 选择:', optionText);
+
+        // 点击选项容器而不是内容
+        const optionContainer = randomOption.closest('.n-base-select-option');
+        if (optionContainer) {
+          optionContainer.scrollIntoView({ block: "nearest" });
+          optionContainer.click();
+
+          // 5. 等待菜单关闭 - 关键步骤！
+          await waitForMenuClose(el, 1000);
+
+          // 6. 验证选择结果
+          const newText = el.textContent.trim();
+          if (newText !== prevText && newText !== '' && newText.length > 0) {
+            console.log('Naive UI: 选择成功 -', newText);
+          } else {
+            console.log('Naive UI: 选择可能失败，重试...');
+            // 如果选择没生效，尝试再次点击同一选项
+            if (optionContainer) {
+              optionContainer.click();
+              await waitForMenuClose(el, 800);
+            }
+          }
+        }
       } else {
         console.log('Naive UI: 没有有效选项');
       }
     } catch (e) {
       console.error('Naive UI 选择器错误:', e);
     }
+  }
+
+  // 等待 Naive UI 菜单关闭
+  async function waitForMenuClose(selectEl, maxWait = 1000) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWait) {
+      await new Promise(r => setTimeout(r, 100));
+
+      // 检查菜单是否关闭
+      const followers = document.querySelectorAll(".v-binder-follower-content");
+      let hasOpenMenu = false;
+      for (const f of followers) {
+        const menu = f.querySelector(".n-base-select-menu");
+        if (menu) {
+          const style = window.getComputedStyle(menu);
+          if (style.display !== 'none') {
+            hasOpenMenu = true;
+            break;
+          }
+        }
+      }
+      if (!hasOpenMenu) return true; // 菜单已关闭
+    }
+    return false; // 超时菜单仍未关闭
   }
 
   // Element Plus el-date-picker support - use direct input value setting
@@ -901,6 +1053,44 @@
           });
           if (validCells.length > 0) {
             rand(validCells).click();
+          }
+        }
+      }
+    }
+  }
+
+  // Naive UI n-date-picker support
+  async function processNaiveDatePicker(input) {
+    if (input.disabled || input.readOnly) return;
+
+    const datePicker = input.closest(".n-date-picker");
+    if (!datePicker) return;
+
+    console.log('Naive UI date-picker 处理');
+
+    // 尝试直接设置值到 input
+    const dateValue = fakeDateUser();
+    input.value = dateValue;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // 如果需要点击打开日历面板
+    const wrapper = datePicker.querySelector(".n-input");
+    if (wrapper) {
+      wrapper.click();
+      await new Promise(r => setTimeout(r, 500));
+
+      // 查找日历面板
+      const followers = document.querySelectorAll(".v-binder-follower-content");
+      for (const f of followers) {
+        const panel = f.querySelector(".n-date-picker-panel, .n-calendar");
+        if (panel) {
+          // 选择一个日期单元格
+          const cell = panel.querySelector(".n-date-panel-cell:not(.n-date-panel-cell--disabled)");
+          if (cell) {
+            cell.click();
+            await new Promise(r => setTimeout(r, 200));
+            break;
           }
         }
       }
@@ -954,13 +1144,29 @@
     // 存储当前激活的弹窗，用于过滤元素
     const activePopup = root === document ? getActiveNaivePopup() : null;
     const isElementInActivePopup = (el) => {
-      if (!activePopup) return true; // 无激活弹窗时不过滤
-      return activePopup.contains(el);
+      // 如果没有激活弹窗，返回 true 让所有元素都能被检测到
+      // 如果有激活弹窗，检查元素是否在弹窗内（或弹窗本身）
+      if (!activePopup) return true;
+      // 允许弹窗内的元素和弹窗本身
+      return activePopup.contains(el) || el === activePopup;
     };
 
     const q = (sel) => Array.from((root.querySelectorAll || root.querySelector)?.call(root, sel) || []);
+
+    // 先处理 Naive UI 选择框 - 防止被当成 input
+    q(".n-select > .n-base-selection").forEach(el => {
+      if (list.seenEl.has(el)) return;
+      if (!isElementInActivePopup(el)) return;
+      if (el.classList.contains("n-base-selection-tags") || el.classList.contains("n-base-selection__border") || el.classList.contains("n-base-selection__state-border") || el.classList.contains("n-base-selection-label") || el.classList.contains("n-base-selection-trigger") || el.classList.contains("n-base-selection-input-tag") || el.classList.contains("n-base-loading")) return;
+      list.seenEl.add(el);
+      list.items.push({ type: 'naive-select', el: el, from: 'naive-ui' });
+    });
+
+    // 标准 input - 但跳过 Naive UI 选择框内部的输入框
     q("input").forEach(el => {
       if (list.seenEl.has(el) || !isElementInActivePopup(el)) return;
+      // 跳过 Naive UI 选择框内部的输入框
+      if (el.closest('.n-select') || el.closest('.n-base-selection')) return;
       list.seenEl.add(el);
       if (el.type === 'file') { list.items.push({ type: 'input', el }); return; }
       const ph = (el.placeholder || "").toLowerCase();
@@ -1000,19 +1206,45 @@
       }
     });
 
-    // Naive UI selectors - 直接使用 document.querySelectorAll 因为 n-select 可能不在 root 内
-    const nSelects = Array.from(document.querySelectorAll(".n-select, .n-base-selection"));
-    nSelects.forEach(el => {
+    // Naive UI selectors - 更宽松的匹配策略，处理非标准用法
+    // 策略1: n-select 下的直接 n-base-selection，排除内部元素
+    q(".n-select > .n-base-selection").forEach(el => {
       if (list.seenEl.has(el)) return;
+      // 跳过特定内部元素
+      if (el.classList.contains("n-base-selection-tags") ||
+          el.classList.contains("n-base-selection__border") ||
+          el.classList.contains("n-base-selection__state-border") ||
+          el.classList.contains("n-base-selection-label") ||
+          el.classList.contains("n-base-selection-trigger") ||
+          el.classList.contains("n-base-selection-input-tag") ||
+          el.classList.contains("n-base-loading")) return;
       list.seenEl.add(el);
-      // n-select 内部有 n-base-selection 子元素
-      const baseSel = el.querySelector(".n-base-selection");
-      if (baseSel && !list.seenEl.has(baseSel)) {
-        list.seenEl.add(baseSel);
-        list.items.push({ type: 'vue-select', el: baseSel, from: 'naive-ui' });
-      } else if (!baseSel) {
-        // n-select 本身可能就是选择器
-        list.items.push({ type: 'vue-select', el: el, from: 'naive-ui' });
+      list.items.push({ type: 'naive-select', el: el, from: 'naive-ui' });
+    });
+
+    // 策略2: 查找带 n-base-selection--selected 或 n-base-selection--error-status 类的元素
+    q(".n-base-selection--selected, .n-base-selection--error-status").forEach(el => {
+      if (list.seenEl.has(el)) return;
+      // 找顶层容器
+      const parent = el.parentElement;
+      if (parent && (parent.classList.contains("n-select") || parent.classList.contains("n-base-selection"))) {
+        if (!list.seenEl.has(parent)) {
+          list.seenEl.add(parent);
+          list.items.push({ type: 'naive-select', el: parent, from: 'naive-ui' });
+        }
+      } else if (!list.seenEl.has(el)) {
+        list.seenEl.add(el);
+        list.items.push({ type: 'naive-select', el: el, from: 'naive-ui' });
+      }
+    });
+
+    // 策略3: 查找 n-base-selection-label (某些页面用这个作为触发器)
+    q(".n-base-selection-label").forEach(el => {
+      if (list.seenEl.has(el)) return;
+      const parent = el.parentElement;
+      if (parent && !list.seenEl.has(parent)) {
+        list.seenEl.add(parent);
+        list.items.push({ type: 'naive-select', el: parent, from: 'naive-ui' });
       }
     });
 
@@ -1069,30 +1301,22 @@
       list.seenEl.add(el);
       list.items.push({ type: 'input', el });
     });
-    // n-select dropdown - 简化版本直接找到能点击的元素
-    const nSelectAll = document.querySelectorAll(".n-base-selection, .n-select, [class*='n-base-selection'], [class*='n-select']");
-    nSelectAll.forEach(el => {
-      if (list.seenEl.has(el)) return;
-      // 检查是否禁用
-      if (el.classList.contains("n-base-selection--disabled") || el.classList.contains("disabled")) return;
-      // 找到触发区域
-      const trigger = el.querySelector(".n-base-selection-trigger, .n-base-selection__border, .n-base-selection__value, .n-base-selection-label, [class*='n-base-selection-trigger']") || el;
-      if (trigger && typeof trigger.click === 'function') {
-        list.seenEl.add(el);
-        list.items.push({ type: 'naive-select', el: trigger, from: 'naive-ui' });
-      }
-    });
     // n-checkbox
     q(".n-checkbox-box, .n-checkbox input[type=checkbox]").forEach(el => {
       if (list.seenEl.has(el)) return;
       list.seenEl.add(el);
       list.items.push({ type: 'el-checkbox', el });
     });
-    // n-radio
-    q(".n-radio input[type=radio]").forEach(el => {
+    // n-date-picker - 找到 n-date-picker 容器内的 input
+    q(".n-date-picker").forEach(el => {
       if (list.seenEl.has(el) || !isElementInActivePopup(el)) return;
-      list.seenEl.add(el);
-      list.items.push({ type: 'el-checkbox', el }); // 同 checkbox 处理方式
+      // 查找 n-date-picker 内部的 input 元素
+      const input = el.querySelector(".n-input__input-el");
+      if (input && !list.seenEl.has(input)) {
+        list.seenEl.add(el);
+        list.seenEl.add(input);
+        list.items.push({ type: 'el-date-picker', el: input });
+      }
     });
 
     // Vite 开发服务器 HMR 识别
@@ -1249,10 +1473,11 @@
     autoFillState._ioCleanup = nextBtnClickHandler;
   }
 
-  window.__bengaliFakeFill = async function () {
-    // 窗口区分: 只处理焦点所在的窗口
-    if (document.hidden || !document.hasFocus()) {
-      console.log('[BengaliFakeFill] 窗口未聚焦，跳过填充');
+  window.__bengaliFakeFill = async function (fromShortcut = false) {
+    // 窗口区分: 快捷键触发时忽略焦点检查，从自动填充则检查
+    // 只有当页面完全隐藏(切换标签页)才跳过
+    if (!fromShortcut && document.hidden) {
+      console.log('[BengaliFakeFill] 页面隐藏，跳过填充');
       return;
     }
 
@@ -1342,7 +1567,14 @@
         } else if (type === 'custom-dropdown') {
           if (set("select")) await withTimeout(processCustomDropdown(el), 1200);
         } else if (type === 'el-date-picker') {
-          if (set("date")) await withTimeout(processElementPlusDatePicker(el), 1500);
+          if (set("date")) {
+            // 根据元素类型选择不同的处理函数
+            if (el.closest('.n-date-picker')) {
+              await withTimeout(processNaiveDatePicker(el), 1500);
+            } else {
+              await withTimeout(processElementPlusDatePicker(el), 1500);
+            }
+          }
         } else if (type === 'el-checkbox') {
           if (set("checkbox")) {
             // Element Plus checkbox - use comprehensive approach
@@ -1492,7 +1724,7 @@
       if (now - lastVPress < 500) {
         e.preventDefault();
         e.stopPropagation();
-        if (typeof window.__bengaliFakeFill === "function") window.__bengaliFakeFill();
+        if (typeof window.__bengaliFakeFill === "function") window.__bengaliFakeFill(true); // true = 来自快捷键
         lastVPress = 0;
       } else lastVPress = now;
     }

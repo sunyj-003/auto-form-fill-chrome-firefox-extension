@@ -8,11 +8,11 @@ const contentJsCode = require('fs').readFileSync('./extensions/chrome/content.js
 test.describe('主流前端框架表单填充', () => {
 
   test('should fill native HTML form', async ({ page }) => {
-    //page.on('console', msg => console.log('PAGE:', msg.text()));
-    //page.on('pageerror', err => console.log('ERROR:', err.message));
-
     await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
     await page.waitForSelector('#native-username');
+
+    // 填充前截图
+    await page.screenshot({ path: 'test-results/before-fill.png' });
 
     await page.addScriptTag({ content: `
       window.chrome = {
@@ -32,6 +32,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.waitForTimeout(300);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(1500);
+
+    // 填充后截图 - 验证视觉上是否有内容
+    await page.screenshot({ path: 'test-results/after-fill.png', fullPage: true });
 
     const results = await page.evaluate(() => ({
       username: document.querySelector('#native-username')?.value || '',
@@ -59,14 +62,17 @@ test.describe('主流前端框架表单填充', () => {
   });
 
   test('should fill Element Plus form', async ({ page }) => {
+    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.waitForSelector('.el-input', { timeout: 15000 });
+
+    // 填充前截图
+    await page.screenshot({ path: 'test-results/element-plus-before.png' });
+
     page.on('console', msg => {
       if (msg.text().includes('el-date') || msg.text().includes('birthday') || msg.text().includes('processElement') || msg.text().includes('wrapper') || msg.text().includes('panel') || msg.text().includes('cells')) {
         console.log('PAGE:', msg.text());
       }
     });
-
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
-    await page.waitForSelector('.el-input', { timeout: 15000 });
 
     await page.addScriptTag({ content: `
       window.chrome = {
@@ -86,6 +92,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(3000);
+
+    // 填充后截图 - 视觉验证
+    await page.screenshot({ path: 'test-results/element-plus-after.png', fullPage: true });
 
     const elResults = await page.evaluate(() => {
       const app = document.querySelector('#elementPlusApp');
@@ -147,6 +156,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
     await page.waitForSelector('#antd-username', { timeout: 15000 });
 
+    // 填充前截图
+    await page.screenshot({ path: 'test-results/antd-before.png' });
+
     await page.addScriptTag({ content: `
       window.chrome = {
         runtime: { id: 'test' },
@@ -165,6 +177,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(2000);
+
+    // 填充后截图 - 视觉验证
+    await page.screenshot({ path: 'test-results/antd-after.png', fullPage: true });
 
     const antdResults = await page.evaluate(() => ({
       username: document.querySelector('#antd-username')?.value || '',
@@ -218,6 +233,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
     await page.waitForSelector('#mui-username', { timeout: 15000 });
 
+    // 填充前截图
+    await page.screenshot({ path: 'test-results/mui-before.png' });
+
     await page.addScriptTag({ content: `
       window.chrome = {
         runtime: { id: 'test' },
@@ -233,6 +251,9 @@ test.describe('主流前端框架表单填充', () => {
     await page.waitForTimeout(300);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(1500);
+
+    // 填充后截图 - 视觉验证
+    await page.screenshot({ path: 'test-results/mui-after.png', fullPage: true });
 
     const muiResults = await page.evaluate(() => ({
       username: document.querySelector('#mui-username')?.value || '',
