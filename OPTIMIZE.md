@@ -66,9 +66,10 @@ const NAIVE_SELECTORS = {
 - 截图验证
 - 自动化测试
 
-### 5. 添加测试页面
+### 5. 添加测试页面 ✅ 已完成
 - 在 tests/form-test/ 下添加更多测试用例
 - 用真实的 Naive UI 组件测试
+- 已添加: naive-ui.html, element-plus.html, ant-design.html
 
 ## 相关文件
 
