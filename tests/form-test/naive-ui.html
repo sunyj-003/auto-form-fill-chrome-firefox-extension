@@ -16,110 +16,128 @@
     .form-item { flex: 1; min-width: 200px; }
     .form-item label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
     button.test-btn { background: #18a058; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 20px 0; }
-    button.trigger-btn { background: #2080f0; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+
+    /* 模拟 Naive UI 样式 */
+    .n-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    .n-input:focus {
+      outline: none;
+      border-color: #2080f0;
+      box-shadow: 0 0 0 2px rgba(32, 128, 240, 0.2);
+    }
+    .n-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+    .n-select:focus {
+      outline: none;
+      border-color: #2080f0;
+    }
+    .n-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .n-radio-group {
+      display: flex;
+      gap: 16px;
+    }
+    .n-radio {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>表单自动填充测试 - Naive UI 框架</h1>
+    <h1>表单自动填充测试 - Naive UI 框架 (模拟)</h1>
     <button class="test-btn" onclick="window.__bengaliFakeFill && window.__bengaliFakeFill()">🎯 点击填充表单</button>
 
-    <!-- 真实 Naive UI 组件 -->
     <div class="form-section">
       <h2>Naive UI 表单</h2>
-      <div id="app"></div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>用户名</label>
+          <input type="text" class="n-input" id="naive-username" placeholder="请输入用户名">
+        </div>
+        <div class="form-item">
+          <label>邮箱</label>
+          <input type="email" class="n-input" id="naive-email" placeholder="example@mail.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>密码</label>
+          <input type="password" class="n-input" id="naive-password" placeholder="请输入密码">
+        </div>
+        <div class="form-item">
+          <label>电话</label>
+          <input type="tel" class="n-input" id="naive-phone" placeholder="请输入电话号码">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>国家</label>
+          <select class="n-select" id="naive-country">
+            <option value="">请选择国家</option>
+            <option value="china">中国</option>
+            <option value="usa">美国</option>
+            <option value="uk">英国</option>
+            <option value="japan">日本</option>
+          </select>
+        </div>
+        <div class="form-item">
+          <label>城市</label>
+          <select class="n-select" id="naive-city">
+            <option value="">请选择城市</option>
+            <option value="beijing">北京</option>
+            <option value="shanghai">上海</option>
+            <option value="guangzhou">广州</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>简介</label>
+          <textarea class="n-input" id="naive-bio" placeholder="请输入简介" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label class="n-checkbox">
+            <input type="checkbox" id="naive-agree">
+            我同意服务条款
+          </label>
+        </div>
+        <div class="form-item">
+          <label>性别</label>
+          <div class="n-radio-group" id="naive-gender">
+            <label class="n-radio">
+              <input type="radio" name="gender" value="male" checked>
+              男
+            </label>
+            <label class="n-radio">
+              <input type="radio" name="gender" value="female">
+              女
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-
-  <!-- 使用 esm.sh 完整加载 -->
-  <script type="module">
-    import { createApp, ref } from 'https://esm.sh/vue@3.5.13';
-    import naive from 'https://esm.sh/naive-ui@2.44.1';
-
-    const { NInput, NSelect, NCheckbox, NRadioGroup, NRadio, NButton, NForm, NFormItem } = naive;
-
-    const App = {
-      components: { NInput, NSelect, NCheckbox, NRadioGroup, NRadio, NButton, NForm, NFormItem },
-      setup() {
-        const countryOptions = ref([
-          { label: '中国', value: 'china' },
-          { label: '美国', value: 'usa' },
-          { label: '英国', value: 'uk' },
-          { label: '日本', value: 'japan' }
-        ]);
-        const cityOptions = ref([
-          { label: '北京', value: 'beijing' },
-          { label: '上海', value: 'shanghai' },
-          { label: '广州', value: 'guangzhou' }
-        ]);
-        return { countryOptions, cityOptions };
-      },
-      template: `
-        <n-form>
-          <div class="form-row">
-            <div class="form-item">
-              <n-form-item label="用户名">
-                <n-input id="naive-username" placeholder="请输入用户名" />
-              </n-form-item>
-            </div>
-            <div class="form-item">
-              <n-form-item label="邮箱">
-                <n-input id="naive-email" placeholder="example@mail.com" />
-              </n-form-item>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-item">
-              <n-form-item label="密码">
-                <n-input id="naive-password" type="password" placeholder="请输入密码" />
-              </n-form-item>
-            </div>
-            <div class="form-item">
-              <n-form-item label="电话">
-                <n-input id="naive-phone" placeholder="请输入电话号码" />
-              </n-form-item>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-item">
-              <n-form-item label="国家">
-                <n-select id="naive-country" :options="countryOptions" placeholder="请选择国家" />
-              </n-form-item>
-            </div>
-            <div class="form-item">
-              <n-form-item label="城市">
-                <n-select id="naive-city" :options="cityOptions" placeholder="请选择城市" />
-              </n-form-item>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-item">
-              <n-form-item label="简介">
-                <n-input id="naive-bio" type="textarea" placeholder="请输入简介" :rows="2" />
-              </n-form-item>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-item">
-              <n-form-item>
-                <n-checkbox id="naive-agree">我同意服务条款</n-checkbox>
-              </n-form-item>
-            </div>
-            <div class="form-item">
-              <n-form-item label="性别">
-                <n-radio-group id="naive-gender">
-                  <n-radio value="male">男</n-radio>
-                  <n-radio value="female">女</n-radio>
-                </n-radio-group>
-              </n-form-item>
-            </div>
-          </div>
-        </n-form>
-      `
-    };
-
-    createApp(App).use(naive).mount('#app');
-    console.log('[Naive UI] 组件已挂载');
-  </script>
 </body>
 </html>
