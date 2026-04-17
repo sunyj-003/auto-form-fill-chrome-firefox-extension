@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表单自动填充测试 - 复杂场景</title>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { color: #333; margin-bottom: 30px; }
+    h2 { color: #666; margin: 30px 0 15px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+    h3 { color: #888; margin: 20px 0 10px; font-size: 14px; }
+    .form-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+    .form-item { flex: 1; min-width: 200px; }
+    .form-item label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
+    button.test-btn { background: #18a058; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 20px 0; }
+
+    /* 通用表单样式 - 模拟各框架 */
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #2080f0;
+      box-shadow: 0 0 0 2px rgba(32, 128, 240, 0.2);
+    }
+
+    /* 状态样式 */
+    .is-required label::after { content: ' *'; color: red; }
+    .is-disabled { opacity: 0.6; pointer-events: none; }
+    .is-readonly input { background: #f5f5f5; }
+    .has-error { border-color: #d32f2f !important; }
+    .has-error-message { color: #d32f2f; font-size: 12px; }
+
+    /* 各框架样式 */
+    .n-input, .ant-input, .el-input__inner, .MuiTextField-root, .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .n-select, .ant-select, .el-select, .MuiSelect-select, .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: white;
+    }
+
+    /* 复选框和单选按钮组 */
+    .checkbox-group, .radio-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .checkbox-group label, .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* 分组选择 */
+    optgroup { font-weight: bold; color: #666; }
+
+    /* 隐藏字段 - 用于测试 */
+    .hidden-field { display: none; }
+    .conditionally-hidden { display: none; }
+    .conditionally-visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>表单自动填充测试 - 复杂场景</h1>
+    <button class="test-btn" onclick="window.__bengaliFakeFill && window.__bengaliFakeFill()">🎯 点击填充表单</button>
+
+    <!-- 1. 带校验状态的字段 -->
+    <div class="form-section">
+      <h2>1. 带校验状态的字段</h2>
+      <div class="form-row">
+        <div class="form-item is-required">
+          <label>必填字段 (用户名)</label>
+          <input type="text" class="form-control" id="required-username" required placeholder="请输入用户名">
+        </div>
+        <div class="form-item">
+          <label>带错误状态的字段</label>
+          <input type="email" class="form-control has-error" id="error-email" placeholder="example@mail.com">
+          <span class="has-error-message">邮箱格式不正确</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>已验证通过的字段</label>
+          <input type="text" class="form-control" id="valid-phone" value="+8801234567890" placeholder="电话">
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 禁用和只读字段 -->
+    <div class="form-section">
+      <h2>2. 禁用和只读字段</h2>
+      <div class="form-row">
+        <div class="form-item is-disabled">
+          <label>禁用字段</label>
+          <input type="text" class="form-control" id="disabled-field" disabled value="禁用值">
+        </div>
+        <div class="form-item is-readonly">
+          <label>只读字段</label>
+          <input type="text" class="form-control" id="readonly-field" readonly value="只读值">
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 多选选择框 -->
+    <div class="form-section">
+      <h2>3. 多选选择框</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>多选国家 (标准 select multiple)</label>
+          <select class="form-control" id="multi-country" multiple size="4">
+            <option value="cn">中国</option>
+            <option value="us">美国</option>
+            <option value="uk">英国</option>
+            <option value="jp">日本</option>
+            <option value="kr">韩国</option>
+          </select>
+        </div>
+        <div class="form-item">
+          <label>复选框组 (爱好)</label>
+          <div class="checkbox-group" id="hobbies">
+            <label><input type="checkbox" name="hobby" value="reading"> 阅读</label>
+            <label><input type="checkbox" name="hobby" value="sports"> 运动</label>
+            <label><input type="checkbox" name="hobby" value="music"> 音乐</label>
+            <label><input type="checkbox" name="hobby" value="travel"> 旅行</label>
+            <label><input type="checkbox" name="hobby" value="coding"> 编程</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 级联选择 -->
+    <div class="form-section">
+      <h2>4. 级联选择 (模拟)</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>省份</label>
+          <select class="form-control" id="cascade-province">
+            <option value="">请选择省份</option>
+            <option value="bj">北京</option>
+            <option value="sh">上海</option>
+            <option value="gd">广东</option>
+            <option value="zj">浙江</option>
+          </select>
+        </div>
+        <div class="form-item">
+          <label>城市</label>
+          <select class="form-control" id="cascade-city" disabled>
+            <option value="">请先选择省份</option>
+          </select>
+        </div>
+        <div class="form-item">
+          <label>区县</label>
+          <select class="form-control" id="cascade-district" disabled>
+            <option value="">请先选择城市</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 分组选择 -->
+    <div class="form-section">
+      <h2>5. 分组选择</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>按地区分组</label>
+          <select class="form-control" id="grouped-country">
+            <optgroup label="亚洲">
+              <option value="cn">中国</option>
+              <option value="jp">日本</option>
+              <option value="kr">韩国</option>
+              <option value="in">印度</option>
+            </optgroup>
+            <optgroup label="欧洲">
+              <option value="uk">英国</option>
+              <option value="de">德国</option>
+              <option value="fr">法国</option>
+            </optgroup>
+            <optgroup label="美洲">
+              <option value="us">美国</option>
+              <option value="ca">加拿大</option>
+              <option value="br">巴西</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 搜索选择 (带搜索框的下拉框) -->
+    <div class="form-section">
+      <h2>6. 搜索选择</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>可搜索的下拉框</label>
+          <select class="form-control searchable-select" id="searchable-country" data-searchable="true">
+            <option value="">搜索...</option>
+            <option value="cn">中国 - China</option>
+            <option value="us">美国 - United States</option>
+            <option value="uk">英国 - United Kingdom</option>
+            <option value="jp">日本 - Japan</option>
+            <option value="de">德国 - Germany</option>
+            <option value="fr">法国 - France</option>
+            <option value="ru">俄罗斯 - Russia</option>
+            <option value="kr">韩国 - Korea</option>
+            <option value="in">印度 - India</option>
+            <option value="br">巴西 - Brazil</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. 更多字段类型 -->
+    <div class="form-section">
+      <h2>7. 更多字段类型</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>日期</label>
+          <input type="date" class="form-control" id="field-date">
+        </div>
+        <div class="form-item">
+          <label>时间</label>
+          <input type="time" class="form-control" id="field-time">
+        </div>
+        <div class="form-item">
+          <label>日期时间</label>
+          <input type="datetime-local" class="form-control" id="field-datetime">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>数字</label>
+          <input type="number" class="form-control" id="field-number" min="0" max="100" step="1">
+        </div>
+        <div class="form-item">
+          <label>范围滑块</label>
+          <input type="range" class="form-control" id="field-range" min="0" max="100" value="50">
+        </div>
+        <div class="form-item">
+          <label>颜色</label>
+          <input type="color" class="form-control" id="field-color" value="#2080f0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>网址</label>
+          <input type="url" class="form-control" id="field-url" placeholder="https://example.com">
+        </div>
+        <div class="form-item">
+          <label>文件上传</label>
+          <input type="file" class="form-control" id="field-file" accept=".pdf,.doc,.docx,.jpg,.png">
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. 单选按钮组 -->
+    <div class="form-section">
+      <h2>8. 单选按钮组</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>性别</label>
+          <div class="radio-group" id="gender">
+            <label><input type="radio" name="gender" value="male"> 男</label>
+            <label><input type="radio" name="gender" value="female"> 女</label>
+            <label><input type="radio" name="gender" value="other"> 其他</label>
+          </div>
+        </div>
+        <div class="form-item">
+          <label>年龄段</label>
+          <div class="radio-group" id="age-group">
+            <label><input type="radio" name="age" value="18-25"> 18-25</label>
+            <label><input type="radio" name="age" value="26-35"> 26-35</label>
+            <label><input type="radio" name="age" value="36-50"> 36-50</label>
+            <label><input type="radio" name="age" value="50+"> 50+</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. 文本区域 -->
+    <div class="form-section">
+      <h2>9. 文本区域</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>简介</label>
+          <textarea class="form-control" id="field-bio" rows="3" placeholder="请输入个人简介"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>地址</label>
+          <textarea class="form-control" id="field-address" rows="2" placeholder="请输入详细地址"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. 条件显示字段 -->
+    <div class="form-section">
+      <h2>10. 条件显示字段</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>是否有公司</label>
+          <div class="radio-group" id="has-company">
+            <label><input type="radio" name="hasCompany" value="yes" checked> 是</label>
+            <label><input type="radio" name="hasCompany" value="no"> 否</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-row conditionally-visible" id="company-fields">
+        <div class="form-item">
+          <label>公司名称</label>
+          <input type="text" class="form-control" id="company-name" placeholder="请输入公司名称">
+        </div>
+        <div class="form-item">
+          <label>公司地址</label>
+          <input type="text" class="form-control" id="company-address" placeholder="请输入公司地址">
+        </div>
+      </div>
+    </div>
+
+    <!-- 11. 隐藏字段 -->
+    <div class="form-section">
+      <h2>11. 隐藏字段 (测试是否会被填充)</h2>
+      <div class="form-row">
+        <div class="form-item hidden-field">
+          <label>隐藏的用户ID</label>
+          <input type="hidden" id="hidden-user-id" value="12345">
+        </div>
+        <div class="form-item" style="display:none;">
+          <label>CSS 隐藏的字段</label>
+          <input type="text" class="form-control" id="css-hidden-field" value="css-hidden">
+        </div>
+        <div class="form-item">
+          <label>可见参照</label>
+          <input type="text" class="form-control" id="visible-ref" value="可见">
+        </div>
+      </div>
+    </div>
+
+    <!-- 12. 复杂表单布局 -->
+    <div class="form-section">
+      <h2>12. 复杂表单布局 (内联表单)</h2>
+      <form class="inline-form" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-item" style="flex: 1; min-width: 150px;">
+          <label>内联用户名</label>
+          <input type="text" class="form-control" id="inline-username" placeholder="用户名">
+        </div>
+        <div class="form-item" style="flex: 1; min-width: 150px;">
+          <label>内联邮箱</label>
+          <input type="email" class="form-control" id="inline-email" placeholder="邮箱">
+        </div>
+        <div class="form-item" style="flex: 1; min-width: 150px;">
+          <label>内联国家</label>
+          <select class="form-control" id="inline-country">
+            <option value="">国家</option>
+            <option value="cn">中国</option>
+            <option value="us">美国</option>
+            <option value="uk">英国</option>
+          </select>
+        </div>
+        <button type="button" class="test-btn" style="margin: 0;">提交</button>
+      </form>
+    </div>
+
+    <!-- 13. 表单验证状态 -->
+    <div class="form-section">
+      <h2>13. 表单验证状态</h2>
+      <div class="form-row">
+        <div class="form-item">
+          <label>最小长度验证 (minlength="3")</label>
+          <input type="text" class="form-control" id="minlength-field" minlength="3" placeholder="至少3个字符">
+        </div>
+        <div class="form-item">
+          <label>最大长度验证 (maxlength="10")</label>
+          <input type="text" class="form-control" id="maxlength-field" maxlength="10" placeholder="最多10个字符">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item">
+          <label>模式验证 (Pattern - 手机号)</label>
+          <input type="tel" class="form-control" id="pattern-phone" pattern="01[0-9]{9}" placeholder="孟加拉国手机号">
+        </div>
+        <div class="form-item">
+          <label>自定义验证 (data-validator)</label>
+          <input type="text" class="form-control" id="custom-validator" data-validator="nid" placeholder="NID 号码">
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
