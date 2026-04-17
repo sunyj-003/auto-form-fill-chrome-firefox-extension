@@ -6,6 +6,8 @@
 2. 支持虚拟列表 (v-vl-visible-items)
 3. 优化了选择框日志显示
 4. 修复了输入框填充冲突问题
+5. ✅ 重构选择器为多路径兜底策略 (NAIVE_SELECTORS)
+6. ✅ 添加了 findElements / findElement 通用查找函数
 
 ## 犯的错误
 
@@ -37,30 +39,26 @@ q(".v-vl-visible-items")
 
 ## 将要做的重构和优化
 
-### 1. 使用通用的检测方式
+### 1. 使用通用的检测方式 ✅ 已开始
 ```javascript
 // 用 role 属性检测
 "[role='combobox']"
 "[aria-haspopup='listbox']"
 
-// 而不是特定类名
-".n-select > .n-base-selection"
+// 改为多路径兜底策略
+const NAIVE_SELECTORS = {
+  container: ['.n-select > .n-base-selection', '.n-base-selection', ...],
+  menu: ['.n-base-select-menu', '.n-select-menu', ...],
+  virtualList: ['.v-vl-visible-items', ...],
+  option: ['.n-base-select-option__content', ...]
+};
 ```
 
 ### 2. 检测页面框架类型
 - 先判断是什么框架 (Naive UI / Element Plus / Ant Design)
 - 用框架对应的标准方法处理
 
-### 3. 多路径兜底
-```javascript
-// 尝试多种可能的选择器
-const selectors = [
-  '.n-base-select-menu',
-  '.v-vl-visible-items',
-  '[class*="select-menu"]',
-  // ...
-];
-```
+### 3. 多路径兜底 ✅ 已完成
 
 ### 4. 自己用 MCP 测试
 - 用 Playwright MCP 连接浏览器

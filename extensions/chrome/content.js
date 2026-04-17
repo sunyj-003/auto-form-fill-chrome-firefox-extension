@@ -814,6 +814,63 @@
   }
 
   // Naive UI 选择器专用处理函数
+  // ============================================
+  // Naive UI 选择框处理 - 重构版，使用多路径兜底策略
+  // ============================================
+
+  // 多路径选择器配置
+  const NAIVE_SELECTORS = {
+    // 选择框容器
+    container: [
+      '.n-select > .n-base-selection',
+      '.n-base-selection',
+      '[class*="n-select"]',
+      '.n-base-selection--selected',
+      '.n-base-selection--error-status',
+      '.n-base-selection--active'
+    ],
+    // 下拉菜单
+    menu: [
+      '.n-base-select-menu',
+      '.n-select-menu',
+      '[class*="select-menu"]'
+    ],
+    // 虚拟列表容器
+    virtualList: [
+      '.v-vl-visible-items',
+      '[class*="vl-visible"]',
+      '[class*="virtual-list"]'
+    ],
+    // 选项元素
+    option: [
+      '.n-base-select-option__content',
+      '.n-select-option__content',
+      '.n-option__content'
+    ]
+  };
+
+  // 查找元素的通用函数 - 多路径兜底
+  function findElements(selectorList) {
+    for (const sel of selectorList) {
+      try {
+        const els = document.querySelectorAll(sel);
+        if (els.length > 0) return Array.from(els);
+      } catch(e) {}
+    }
+    return [];
+  }
+
+  // 查找单个元素
+  function findElement(selectorList) {
+    for (const sel of selectorList) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) return el;
+      } catch(e) {}
+    }
+    return null;
+  }
+
   async function processNaiveUISelect(el) {
     // 获取选择框的标签（用于日志）
     let selectLabel = '';
@@ -831,29 +888,35 @@
       // 1. 点击打开下拉菜单
       el.click();
 
-      // 2. 等待菜单展开 - 使用轮询等待菜单出现
+      // 2. 等待菜单展开 - 使用多路径兜底策略查找菜单
       let dropdown = null;
-      const maxWait = 2000; // 增加等待时间
+      const maxWait = 2000;
       const startTime = Date.now();
+
+      // 多路径查找菜单容器
+      const followerSelectors = [
+        '.v-binder-follower-content',
+        '[class*="binder-follower"]',
+        '[class*="dropdown"]'
+      ];
 
       while (Date.now() - startTime < maxWait && !dropdown) {
         await new Promise(r => setTimeout(r, 200));
 
-        // 查找 v-binder-follower-content 中的菜单
-        const followers = document.querySelectorAll(".v-binder-follower-content");
+        // 使用多路径选择器查找菜单
+        const followers = findElements(followerSelectors);
         for (const f of followers) {
-          const menu = f.querySelector(".n-base-select-menu");
-          if (menu) {
+          const menus = findElements(NAIVE_SELECTORS.menu);
+          for (const menu of menus) {
             const style = window.getComputedStyle(menu);
-            // 找到第一个显示的菜单
             if (!style.display || style.display !== 'none') {
               dropdown = menu;
               break;
             }
           }
+          if (dropdown) break;
         }
 
-        // 如果没找到，等待一下让虚拟列表加载
         if (!dropdown) {
           await new Promise(r => setTimeout(r, 300));
         }
