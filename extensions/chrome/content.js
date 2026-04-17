@@ -849,6 +849,39 @@
     ]
   };
 
+  // 框架检测函数 - 识别页面使用的 UI 框架
+  function detectFramework() {
+    // 检测 Naive UI
+    if (document.querySelector('.n-select, .n-base-selection, .n-form-item')) {
+      return 'naive-ui';
+    }
+    // 检测 Element Plus
+    if (document.querySelector('.el-select, .el-input, .el-form-item')) {
+      return 'element-plus';
+    }
+    // 检测 Ant Design
+    if (document.querySelector('.ant-select, .ant-input, .ant-form-item')) {
+      return 'ant-design';
+    }
+    // 检测 React Select
+    if (document.querySelector('.react-select__control, .css-1hwfws3')) {
+      return 'react-select';
+    }
+    // 检测 Vue Select
+    if (document.querySelector('.v-select, .vs__dropdown-toggle')) {
+      return 'vue-select';
+    }
+    // 检测 Material UI
+    if (document.querySelector('.MuiSelect-root, .MuiFormControl-root')) {
+      return 'mui';
+    }
+    // 检测 jQuery Select2
+    if (document.querySelector('.select2-container, .select2-search__field')) {
+      return 'select2';
+    }
+    return 'unknown';
+  }
+
   // 查找元素的通用函数 - 多路径兜底
   function findElements(selectorList) {
     for (const sel of selectorList) {
@@ -1543,6 +1576,10 @@
       console.log('[BengaliFakeFill] 页面隐藏，跳过填充');
       return;
     }
+
+    // 检测页面框架类型
+    const framework = detectFramework();
+    console.log('[BengaliFakeFill] 页面框架:', framework);
 
     const r = await new Promise(res => {
       chrome.storage.sync.get(["formSettings", "customRules", "phoneFormat", "autoFillEnabled"], (data) => {

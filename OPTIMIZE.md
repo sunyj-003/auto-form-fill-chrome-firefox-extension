@@ -8,6 +8,7 @@
 4. 修复了输入框填充冲突问题
 5. ✅ 重构选择器为多路径兜底策略 (NAIVE_SELECTORS)
 6. ✅ 添加了 findElements / findElement 通用查找函数
+7. ✅ 添加了 detectFramework() 框架检测函数
 
 ## 犯的错误
 
@@ -39,7 +40,7 @@ q(".v-vl-visible-items")
 
 ## 将要做的重构和优化
 
-### 1. 使用通用的检测方式 ✅ 已开始
+### 1. 使用通用的检测方式 ✅ 已完成
 ```javascript
 // 用 role 属性检测
 "[role='combobox']"
@@ -54,7 +55,7 @@ const NAIVE_SELECTORS = {
 };
 ```
 
-### 2. 检测页面框架类型
+### 2. 检测页面框架类型 ✅ 已完成
 - 先判断是什么框架 (Naive UI / Element Plus / Ant Design)
 - 用框架对应的标准方法处理
 
