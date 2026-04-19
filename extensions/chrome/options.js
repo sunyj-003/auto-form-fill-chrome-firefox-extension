@@ -1,9 +1,5 @@
-const SHORTCUT_KEY = 'shortcutEnabled';
-const AUTO_FILL_KEY = 'autoFillEnabled';
-const FORM_KEYS = ['name', 'email', 'phone', 'address', 'company', 'date', 'checkbox', 'radio', 'select', 'textarea', 'number', 'password', 'url', 'nid', 'file'];
-const STORAGE_KEY = 'formSettings';
-const RULES_KEY = 'customRules';
-const CUSTOM_FILES_KEY = 'customFiles';
+const storage = window.__BengaliStorage__;
+const FORM_KEYS = storage.FORM_KEYS;
 
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -15,43 +11,37 @@ function showToast(msg) {
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
-const PHONE_FORMAT_KEY = 'phoneFormat';
+async function load() {
+  const settings = await storage.getSettings();
+  const customFiles = await storage.getCustomFiles();
 
-function load() {
-  chrome.storage.sync.get([SHORTCUT_KEY, AUTO_FILL_KEY, STORAGE_KEY, RULES_KEY, PHONE_FORMAT_KEY], (r) => {
-    if (chrome.runtime?.lastError) return;
-    const shortcutEl = document.getElementById('shortcutToggle');
-    if (shortcutEl) {
-      const on = r[SHORTCUT_KEY] !== false;
-      shortcutEl.classList.toggle('on', on);
-      shortcutEl.setAttribute('aria-checked', on);
+  const shortcutEl = document.getElementById('shortcutToggle');
+  if (shortcutEl) {
+    shortcutEl.classList.toggle('on', settings.shortcutEnabled);
+    shortcutEl.setAttribute('aria-checked', settings.shortcutEnabled);
+  }
+
+  const autoFillEl = document.getElementById('autoFillToggle');
+  if (autoFillEl) {
+    autoFillEl.classList.toggle('on', settings.autoFillEnabled);
+    autoFillEl.setAttribute('aria-checked', settings.autoFillEnabled);
+  }
+
+  const phoneFormatEl = document.getElementById('phoneFormat');
+  if (phoneFormatEl) phoneFormatEl.value = settings.phoneFormat;
+
+  FORM_KEYS.forEach(k => {
+    const t = document.getElementById('t_' + k);
+    if (t) {
+      const on = settings.formSettings[k] !== false;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-checked', on);
     }
-    // 加载持续自动填充开关状态
-    const autoFillEl = document.getElementById('autoFillToggle');
-    if (autoFillEl) {
-      const on = r[AUTO_FILL_KEY] === true;
-      autoFillEl.classList.toggle('on', on);
-      autoFillEl.setAttribute('aria-checked', on);
-    }
-    const settings = r[STORAGE_KEY] || {};
-    const phoneFormatEl = document.getElementById('phoneFormat');
-    if (phoneFormatEl) phoneFormatEl.value = (r[PHONE_FORMAT_KEY] || settings.phoneFormat || 'local') === 'international' ? 'international' : 'local';
-    FORM_KEYS.forEach(k => {
-      const t = document.getElementById('t_' + k);
-      if (t) {
-        const on = settings[k] !== false;
-        t.classList.toggle('on', on);
-        t.setAttribute('aria-checked', on);
-      }
-    });
-    updateFieldCount();
-    const raw = r[RULES_KEY];
-    const rules = Array.isArray(raw) ? raw.filter(rule => rule && String(rule.pattern || '').trim()) : [];
-    rules.forEach(rule => {
-      if (rule.regex === undefined) rule.regex = false;
-    });
-    renderRules(rules);
   });
+
+  updateFieldCount();
+  renderRules(settings.customRules);
+  updateCustomFilesStatus(customFiles);
 }
 
 function updateFieldCount() {
@@ -65,28 +55,29 @@ function updateFieldCount() {
   el.textContent = `${on} / ${FORM_KEYS.length} on`;
 }
 
-function setField(k, on) {
+async function setField(k, on) {
   const t = document.getElementById('t_' + k);
   if (!t) return;
   t.classList.toggle('on', on);
   t.setAttribute('aria-checked', on);
-  chrome.storage.sync.get(STORAGE_KEY, (r) => {
-    if (chrome.runtime?.lastError) return;
-    const s = (r[STORAGE_KEY] && typeof r[STORAGE_KEY] === 'object') ? { ...r[STORAGE_KEY] } : {};
-    s[k] = on;
-    chrome.storage.sync.set({ [STORAGE_KEY]: s }, () => {
-      if (chrome.runtime?.lastError) showToast('Save failed');
-      else { updateFieldCount(); showToast('Saved'); }
-    });
-  });
+  try {
+    await storage.updateFormSettings({ [k]: on });
+    updateFieldCount();
+    showToast('Saved');
+  } catch (err) {
+    showToast('Save failed');
+  }
 }
-function setAllFields(on) {
+async function setAllFields(on) {
   const s = {};
   FORM_KEYS.forEach(k => { s[k] = on; const t = document.getElementById('t_' + k); if (t) { t.classList.toggle('on', on); t.setAttribute('aria-checked', on); } });
-  chrome.storage.sync.set({ [STORAGE_KEY]: s }, () => {
-    if (chrome.runtime?.lastError) showToast('Save failed');
-    else { updateFieldCount(); showToast(on ? 'All fields enabled' : 'All fields disabled'); }
-  });
+  try {
+    await storage.updateFormSettings(s);
+    updateFieldCount();
+    showToast(on ? 'All fields enabled' : 'All fields disabled');
+  } catch (err) {
+    showToast('Save failed');
+  }
 }
 
 function renderRules(rules) {
@@ -110,17 +101,15 @@ function renderRules(rules) {
     </div>`
   ).join('');
   list.querySelectorAll('.delRule').forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const idx = +btn.dataset.i;
-      chrome.storage.sync.get(RULES_KEY, (r) => {
-        if (chrome.runtime?.lastError) return;
-        const arr = (Array.isArray(r[RULES_KEY]) ? r[RULES_KEY] : []).filter((_, j) => j !== idx);
-        chrome.storage.sync.set({ [RULES_KEY]: arr }, () => {
-          if (chrome.runtime?.lastError) { showToast('Remove failed'); return; }
-          load();
-          showToast('Rule removed');
-        });
-      });
+      try {
+        await storage.removeCustomRule(idx);
+        await load();
+        showToast('Rule removed');
+      } catch (err) {
+        showToast('Remove failed');
+      }
     };
   });
 }
@@ -152,20 +141,18 @@ const shortcutEl = document.getElementById('shortcutToggle');
 const phoneFormatEl = document.getElementById('phoneFormat');
 if (phoneFormatEl) phoneFormatEl.addEventListener('change', function () {
   const val = this.value === 'international' ? 'international' : 'local';
-  chrome.storage.sync.set({ [PHONE_FORMAT_KEY]: val }, () => {
-    if (chrome.runtime?.lastError) showToast('Save failed');
-    else showToast('Saved');
-  });
+  storage.setPhoneFormat(val)
+    .then(() => showToast('Saved'))
+    .catch(() => showToast('Save failed'));
 });
 
 if (shortcutEl) {
   shortcutEl.addEventListener('click', function () {
     const on = this.classList.toggle('on');
     this.setAttribute('aria-checked', on);
-    chrome.storage.sync.set({ [SHORTCUT_KEY]: on }, () => {
-      if (chrome.runtime?.lastError) showToast('Save failed');
-      else showToast('Saved');
-    });
+    storage.setShortcutEnabled(on)
+      .then(() => showToast('Saved'))
+      .catch(() => showToast('Save failed'));
   });
   shortcutEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
@@ -178,10 +165,9 @@ if (autoFillEl) {
   autoFillEl.addEventListener('click', function () {
     const on = this.classList.toggle('on');
     this.setAttribute('aria-checked', on);
-    chrome.storage.sync.set({ [AUTO_FILL_KEY]: on }, () => {
-      if (chrome.runtime?.lastError) showToast('Save failed');
-      else showToast(on ? 'Auto-fill enabled' : 'Auto-fill disabled');
-    });
+    storage.setAutoFillEnabled(on)
+      .then(() => showToast(on ? 'Auto-fill enabled' : 'Auto-fill disabled'))
+      .catch(() => showToast('Save failed'));
   });
   autoFillEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
@@ -193,18 +179,16 @@ FORM_KEYS.forEach(k => {
   const t = document.getElementById('t_' + k);
   const chip = t?.closest('.field-chip');
   if (!t) return;
-  const toggle = () => {
+  const toggle = async () => {
     const on = !t.classList.toggle('on');
     t.setAttribute('aria-checked', on);
-    chrome.storage.sync.get(STORAGE_KEY, (r) => {
-      if (chrome.runtime?.lastError) return;
-      const s = (r[STORAGE_KEY] && typeof r[STORAGE_KEY] === 'object') ? { ...r[STORAGE_KEY] } : {};
-      s[k] = on;
-      chrome.storage.sync.set({ [STORAGE_KEY]: s }, () => {
-        if (chrome.runtime?.lastError) showToast('Save failed');
-        else { updateFieldCount(); showToast('Saved'); }
-      });
-    });
+    try {
+      await storage.updateFormSettings({ [k]: on });
+      updateFieldCount();
+      showToast('Saved');
+    } catch (err) {
+      showToast('Save failed');
+    }
   };
   t.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
   t.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
@@ -221,23 +205,33 @@ const patternInput = document.getElementById('rulePattern');
 const ruleTypeSelect = document.getElementById('ruleType');
 const ruleRegexCheckbox = document.getElementById('ruleRegex');
 if (addBtn && patternInput && ruleTypeSelect) {
-  addBtn.addEventListener('click', () => {
+  addBtn.addEventListener('click', async () => {
     const pattern = patternInput.value.trim();
     const fillType = ruleTypeSelect.value;
     const regex = !!ruleRegexCheckbox?.checked;
-    if (!pattern) return;
-    chrome.storage.sync.get(RULES_KEY, (r) => {
-      if (chrome.runtime?.lastError) { showToast('Error loading rules'); return; }
-      const arr = Array.isArray(r[RULES_KEY]) ? r[RULES_KEY].slice() : [];
-      arr.push({ pattern, fillType, regex: !!regex });
-      chrome.storage.sync.set({ [RULES_KEY]: arr }, () => {
-        if (chrome.runtime?.lastError) { showToast('Save failed'); return; }
-        patternInput.value = '';
-        if (ruleRegexCheckbox) ruleRegexCheckbox.checked = false;
-        load();
-        showToast('Rule added');
-      });
-    });
+    if (!pattern) {
+      showToast('Pattern cannot be empty');
+      return;
+    }
+
+    // M4.23: Validate rule before saving
+    if (storage.validateRule) {
+      const validation = storage.validateRule({ pattern, fillType, regex });
+      if (!validation.valid) {
+        showToast(validation.errors[0]);
+        return;
+      }
+    }
+
+    try {
+      await storage.addCustomRule({ pattern, fillType, regex });
+      patternInput.value = '';
+      if (ruleRegexCheckbox) ruleRegexCheckbox.checked = false;
+      await load();
+      showToast('Rule added');
+    } catch (err) {
+      showToast('Save failed');
+    }
   });
   patternInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
 }
@@ -266,31 +260,27 @@ function closeModal() {
 if (resetBtn) resetBtn.addEventListener('click', openModal);
 modalCancel?.addEventListener('click', closeModal);
 modalConfirm?.addEventListener('click', () => {
-  chrome.storage.sync.set({
-    [SHORTCUT_KEY]: true,
-    [STORAGE_KEY]: {},
-    [RULES_KEY]: [],
-    [PHONE_FORMAT_KEY]: 'local'
-  }, () => {
-    closeModal();
-    load();
-    showToast('Reset to defaults');
-  });
+  storage.resetSettings()
+    .then(async () => {
+      closeModal();
+      await load();
+      showToast('Reset to defaults');
+    })
+    .catch(() => showToast('Save failed'));
 });
 modalOverlay?.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
 modalOverlay?.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
 // ——— Custom Files ———
-function saveCustomFile(key, dataUrl, fileName) {
+async function saveCustomFile(key, dataUrl, fileName) {
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) { showToast('Invalid file'); return; }
-  chrome.storage.local.get([CUSTOM_FILES_KEY], (r) => {
-    const prev = r[CUSTOM_FILES_KEY] && typeof r[CUSTOM_FILES_KEY] === 'object' ? r[CUSTOM_FILES_KEY] : {};
-    const cf = { ...prev, [key]: dataUrl, [key + 'Name']: fileName };
-    chrome.storage.local.set({ [CUSTOM_FILES_KEY]: cf }, () => {
-      if (chrome.runtime?.lastError) showToast('Save failed');
-      else { showToast('Saved'); updateCustomFilesStatus(cf); }
-    });
-  });
+  try {
+    const customFiles = await storage.saveCustomFile(key, dataUrl, fileName);
+    showToast('Saved');
+    updateCustomFilesStatus(customFiles);
+  } catch (err) {
+    showToast('Save failed');
+  }
 }
 
 document.getElementById('customImage')?.addEventListener('change', function(e) {
@@ -318,22 +308,32 @@ document.getElementById('customDoc')?.addEventListener('change', function(e) {
 });
 
 document.getElementById('clearCustomFiles')?.addEventListener('click', () => {
-  chrome.storage.local.remove([CUSTOM_FILES_KEY], () => {
-    if (chrome.runtime?.lastError) showToast('Clear failed');
-    else {
+  storage.clearCustomFiles()
+    .then(() => {
       showToast('Custom files cleared');
       updateCustomFilesStatus(null);
       ['customImage', 'customPdf', 'customDoc'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
       });
-    }
-  });
+    })
+    .catch(() => showToast('Clear failed'));
 });
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', load);
-} else {
-  load();
+function updateCustomFilesStatus(customFiles) {
+  const el = document.getElementById('customFilesStatus');
+  if (!el) return;
+  const files = storage.normalizeCustomFiles(customFiles);
+  const labels = [];
+  if (files.image) labels.push(`Image: ${files.imageName}`);
+  if (files.pdf) labels.push(`PDF: ${files.pdfName}`);
+  if (files.doc) labels.push(`DOC: ${files.docName}`);
+  el.textContent = labels.length ? labels.join(' | ') : 'No custom files saved.';
 }
-window.addEventListener('pageshow', () => load());
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { load().catch(() => showToast('Load failed')); });
+} else {
+  load().catch(() => showToast('Load failed'));
+}
+window.addEventListener('pageshow', () => { load().catch(() => showToast('Load failed')); });

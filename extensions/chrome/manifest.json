@@ -6,7 +6,27 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["framework-adapters/naive-ui.js", "content.js"]
+      "js": [
+      "core/storage.js",
+      "core/context.js",
+      "core/field-types.js",
+      "core/field-detection.js",
+      "core/events.js",
+      "core/autofill.js",
+      "core/collector.js",
+      "core/fill.js",
+      "core/dropdown.js",
+      "generators/fakeData.js",
+      "adapters/interface.js",
+      "core/adapter-helpers.js",
+      "framework-adapters/naive-ui.js",
+      "framework-adapters/element-plus.js",
+      "framework-adapters/ant-design.js",
+      "framework-adapters/react-select.js",
+      "framework-adapters/mui.js",
+      "core/adapter-registry.js",
+      "content.js"
+    ]
     }
   ],
   "permissions": ["activeTab", "scripting", "storage"],
@@ -24,5 +44,3 @@
     "128": "icons/icon128.png"
   }
 }
-
-
