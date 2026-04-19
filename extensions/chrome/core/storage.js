@@ -8,6 +8,7 @@
     formSettings: 'formSettings',
     customRules: 'customRules',
     phoneFormat: 'phoneFormat',
+    excludedSites: 'excludedSites',
   };
   const LOCAL_KEYS = {
     customFiles: 'customFiles',
@@ -82,6 +83,7 @@
       phoneFormat: 'local',
       formSettings,
       customRules: [],
+      excludedSites: [],
     };
   }
 
@@ -198,7 +200,46 @@
       phoneFormat: normalizePhoneFormat(raw[SYNC_KEYS.phoneFormat] || raw[SYNC_KEYS.formSettings]?.phoneFormat || defaults.phoneFormat),
       formSettings: normalizeFormSettings(raw[SYNC_KEYS.formSettings]),
       customRules: normalizeRules(raw[SYNC_KEYS.customRules]),
+      excludedSites: normalizeExcludedSites(raw[SYNC_KEYS.excludedSites]),
     };
+  }
+
+  // M5.32: Site exclusion/skip list functions
+  function normalizeExcludedSites(sites) {
+    if (!Array.isArray(sites)) return [];
+    return sites
+      .filter(s => s && typeof s === 'string' && s.trim())
+      .map(s => s.trim().toLowerCase())
+      .filter((s, i, arr) => arr.indexOf(s) === i); // Remove duplicates
+  }
+
+  function isSiteExcluded(url, excludedSites) {
+    if (!url || !excludedSites || excludedSites.length === 0) return false;
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname.toLowerCase();
+      return excludedSites.some(site => hostname.includes(site) || site.includes(hostname));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function addExcludedSite(site) {
+    const settings = await getSettings();
+    const sites = [...settings.excludedSites];
+    const normalized = site.trim().toLowerCase();
+    if (normalized && !sites.includes(normalized)) {
+      sites.push(normalized);
+      await setSync({ [SYNC_KEYS.excludedSites]: sites });
+    }
+    return sites;
+  }
+
+  async function removeExcludedSite(site) {
+    const settings = await getSettings();
+    const sites = settings.excludedSites.filter(s => s !== site.trim().toLowerCase());
+    await setSync({ [SYNC_KEYS.excludedSites]: sites });
+    return sites;
   }
 
   async function getCustomFiles() {
@@ -253,6 +294,7 @@
       [SYNC_KEYS.formSettings]: defaults.formSettings,
       [SYNC_KEYS.customRules]: defaults.customRules,
       [SYNC_KEYS.phoneFormat]: defaults.phoneFormat,
+      [SYNC_KEYS.excludedSites]: defaults.excludedSites,
     });
   }
 
@@ -293,6 +335,11 @@
     classifyRule,
     getFixedValueRules,
     getTypeMappingRules,
+    // M5.32: Site exclusion
+    normalizeExcludedSites,
+    isSiteExcluded,
+    addExcludedSite,
+    removeExcludedSite,
   };
 
   if (typeof window !== 'undefined') {

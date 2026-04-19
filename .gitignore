@@ -15,6 +15,7 @@ Thumbs.db
 .worktrees/
 
 # Test results
+test-results/
 tests/test-results/
 
 # Playwright
@@ -24,3 +25,8 @@ playwright-report/
 # MCP
 .playwright-mcp/
 .gstack/
+
+# Release artifacts
+chrome-release.zip
+*.crx
+*.xpi
