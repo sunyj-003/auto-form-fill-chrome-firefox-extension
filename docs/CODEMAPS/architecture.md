@@ -1,7 +1,7 @@
 # 扩展架构
 
 ## 项目类型
-浏览器扩展 (Chrome Manifest V3 + Firefox Manifest V2)
+浏览器扩展 (Chrome Manifest V3)
 
 ## 数据流
 ```
@@ -27,9 +27,6 @@ content.js (注入到页面)
 - `content.js` - 主逻辑 (~1000 行): 表单检测、字段填充、假数据
 - `options.js` - 设置页面: 字段开关、自定义规则、电话格式
 - `popup.js` - 弹出窗口 UI: 填充表单按钮
-
-### Firefox (extensions/firefox/)
-- 与 Chrome 结构相同，但使用 Manifest V2
 
 ## 存储
 | 键 | 类型 | 用途 |

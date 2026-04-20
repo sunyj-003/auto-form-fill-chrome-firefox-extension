@@ -209,8 +209,29 @@
     if (!Array.isArray(sites)) return [];
     return sites
       .filter(s => s && typeof s === 'string' && s.trim())
-      .map(s => s.trim().toLowerCase())
+      .map(normalizeExcludedSite)
+      .filter(Boolean)
       .filter((s, i, arr) => arr.indexOf(s) === i); // Remove duplicates
+  }
+
+  function normalizeExcludedSite(site) {
+    if (!site || typeof site !== 'string') return '';
+    let value = site.trim().toLowerCase();
+    if (!value) return '';
+
+    value = value.replace(/^\*\./, '');
+
+    try {
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+        return new URL(value).hostname.toLowerCase();
+      }
+    } catch (e) {}
+
+    value = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+    value = value.split('/')[0];
+    value = value.replace(/:\d+$/, '');
+    value = value.replace(/^\.+|\.+$/g, '');
+    return value;
   }
 
   function isSiteExcluded(url, excludedSites) {
@@ -218,7 +239,7 @@
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();
-      return excludedSites.some(site => hostname.includes(site) || site.includes(hostname));
+      return excludedSites.some((site) => hostname === site || hostname.endsWith('.' + site));
     } catch (e) {
       return false;
     }
@@ -227,7 +248,7 @@
   async function addExcludedSite(site) {
     const settings = await getSettings();
     const sites = [...settings.excludedSites];
-    const normalized = site.trim().toLowerCase();
+    const normalized = normalizeExcludedSite(site);
     if (normalized && !sites.includes(normalized)) {
       sites.push(normalized);
       await setSync({ [SYNC_KEYS.excludedSites]: sites });
@@ -237,7 +258,8 @@
 
   async function removeExcludedSite(site) {
     const settings = await getSettings();
-    const sites = settings.excludedSites.filter(s => s !== site.trim().toLowerCase());
+    const normalized = normalizeExcludedSite(site);
+    const sites = settings.excludedSites.filter(s => s !== normalized);
     await setSync({ [SYNC_KEYS.excludedSites]: sites });
     return sites;
   }
@@ -336,6 +358,7 @@
     getFixedValueRules,
     getTypeMappingRules,
     // M5.32: Site exclusion
+    normalizeExcludedSite,
     normalizeExcludedSites,
     isSiteExcluded,
     addExcludedSite,

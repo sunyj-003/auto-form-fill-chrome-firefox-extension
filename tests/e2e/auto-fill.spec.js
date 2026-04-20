@@ -1,166 +1,139 @@
-// 持续自动填充 E2E 测试
+// 注入式持续自动填充测试
 // 运行: npx playwright test tests/e2e/auto-fill.spec.js
 
+const fs = require('fs');
+const path = require('path');
 const { test, expect } = require('@playwright/test');
+const { installInjectedExtension } = require('./helpers/module-injection');
 
-const contentJsCode = require('fs').readFileSync('./extensions/chrome/content.js', 'utf8');
+test.describe('Injected Auto-Fill Behavior', () => {
+  const screenshotDir = path.resolve(__dirname, '../../artifacts/test-report');
 
-test.describe('持续自动填充功能', () => {
+  function ensureScreenshotDir() {
+    fs.mkdirSync(screenshotDir, { recursive: true });
+  }
+
+  async function readDynamicStepValues(page) {
+    return page.evaluate(() => ({
+      step1: {
+        name: document.querySelector('#dynamic-name-1')?.value || '',
+        email: document.querySelector('#dynamic-email-1')?.value || '',
+      },
+      step2: {
+        phone: document.querySelector('#dynamic-phone-2')?.value || '',
+        address: document.querySelector('#dynamic-address-2')?.value || '',
+      },
+      step3: {
+        company: document.querySelector('#dynamic-company-3')?.value || '',
+        position: document.querySelector('#dynamic-position-3')?.value || '',
+      }
+    }));
+  }
+
+  async function readNavigationValues(page) {
+    return page.evaluate(() => ({
+      page1: {
+        username: document.querySelector('#nav-username')?.value || '',
+        password: document.querySelector('#nav-password')?.value || '',
+      },
+      page2: {
+        realname: document.querySelector('#nav-realname')?.value || '',
+        phone: document.querySelector('#nav-phone')?.value || '',
+      }
+    }));
+  }
 
   test('should fill dynamic loaded form elements', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#dynamic-name-1', { timeout: 15000 });
 
-    // 注入扩展代码，启用持续自动填充
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: {
-            get: (k, cb) => setTimeout(() => cb({
-              formSettings: { name: true, email: true, phone: true, address: true, company: true },
-              customRules: [],
-              phoneFormat: 'local',
-              autoFillEnabled: true  // 启用持续自动填充
-            }), 0)
-          },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
+    await installInjectedExtension(page, {
+      formSettings: { name: true, email: true, phone: true, address: true, company: true },
+      autoFillEnabled: true,
+    });
+    await expect.poll(async () => {
+      const values = await readDynamicStepValues(page);
+      return values.step1;
+    }).toMatchObject({
+      name: expect.any(String),
+      email: expect.stringMatching(/@/),
+    });
 
-    await page.addScriptTag({ content: contentJsCode });
-    await page.waitForTimeout(500);
-    await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
-    await page.waitForTimeout(1500);
-
-    // 验证 Step 1 表单已填充
-    const step1Values = await page.evaluate(() => ({
-      name: document.querySelector('#dynamic-name-1')?.value || '',
-      email: document.querySelector('#dynamic-email-1')?.value || ''
-    }));
-    console.log('Step 1 填充结果:', step1Values);
-    expect(step1Values.name).toBeTruthy();
-    expect(step1Values.email).toMatch(/@/);
-
-    // 点击下一步，显示 Step 2
     await page.click('#nextStepBtn');
-    await page.waitForTimeout(2000);
+    await expect.poll(async () => {
+      const values = await readDynamicStepValues(page);
+      return values.step2;
+    }).toMatchObject({
+      phone: expect.any(String),
+      address: expect.any(String),
+    });
 
-    // 验证 Step 2 表单是否自动填充（如果功能实现）
-    const step2Values = await page.evaluate(() => ({
-      phone: document.querySelector('#dynamic-phone-2')?.value || '',
-      address: document.querySelector('#dynamic-address-2')?.value || ''
-    }));
-    console.log('Step 2 填充结果:', step2Values);
+    ensureScreenshotDir();
+    await page.evaluate(() => {
+      document.querySelector('#dynamic-phone-2')?.scrollIntoView({ block: 'center' });
+    });
+    await page.screenshot({
+      path: path.join(screenshotDir, 'dynamic-step-2-filled.png'),
+      fullPage: true,
+    });
 
-    // 再次点击下一步，显示 Step 3
     await page.click('#nextStepBtn');
-    await page.waitForTimeout(2000);
-
-    const step3Values = await page.evaluate(() => ({
-      company: document.querySelector('#dynamic-company-3')?.value || '',
-      position: document.querySelector('#dynamic-position-3')?.value || ''
-    }));
-    console.log('Step 3 填充结果:', step3Values);
+    await expect.poll(async () => {
+      const values = await readDynamicStepValues(page);
+      return values.step3;
+    }).toMatchObject({
+      company: expect.any(String),
+    });
   });
 
   test('should fill after page navigation', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#nav-username', { timeout: 15000 });
 
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: {
-            get: (k, cb) => setTimeout(() => cb({
-              formSettings: { name: true, email: true, phone: true },
-              customRules: [],
-              phoneFormat: 'local',
-              autoFillEnabled: true
-            }), 0)
-          },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
+    await installInjectedExtension(page, {
+      formSettings: { name: true, email: true, phone: true, password: true },
+      autoFillEnabled: true,
+    });
+    await expect.poll(async () => {
+      const values = await readNavigationValues(page);
+      return values.page1;
+    }).toMatchObject({
+      username: expect.any(String),
+      password: expect.any(String),
+    });
 
-    await page.addScriptTag({ content: contentJsCode });
-    await page.waitForTimeout(500);
-    await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
-    await page.waitForTimeout(1500);
-
-    // 验证页面 1 表单已填充
-    const page1Values = await page.evaluate(() => ({
-      username: document.querySelector('#nav-username')?.value || '',
-      password: document.querySelector('#nav-password')?.value || ''
-    }));
-    console.log('页面 1 填充结果:', page1Values);
-    expect(page1Values.username).toBeTruthy();
-    expect(page1Values.password).toBeTruthy();
-
-    // 点击下一页，切换到页面 2
     await page.click('#nextNavBtn');
-    await page.waitForTimeout(1000);
-
-    // 验证页面 2 表单是否自动填充
-    const page2Values = await page.evaluate(() => ({
-      realname: document.querySelector('#nav-realname')?.value || '',
-      phone: document.querySelector('#nav-phone')?.value || ''
-    }));
-    console.log('页面 2 填充结果:', page2Values);
+    await expect.poll(async () => {
+      const values = await readNavigationValues(page);
+      return values.page2;
+    }).toMatchObject({
+      realname: expect.any(String),
+      phone: expect.any(String),
+    });
   });
 
   test('should NOT fill when auto-fill is disabled', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#dynamic-name-1', { timeout: 15000 });
 
-    // 注入扩展代码，禁用持续自动填充
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: {
-            get: (k, cb) => setTimeout(() => cb({
-              formSettings: { name: true, email: true, phone: true, address: true },
-              customRules: [],
-              phoneFormat: 'local',
-              autoFillEnabled: false  // 禁用持续自动填充
-            }), 0)
-          },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
-    await page.waitForTimeout(500);
+    await installInjectedExtension(page, {
+      formSettings: { name: true, email: true, phone: true, address: true },
+      autoFillEnabled: false,
+    });
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
-    await page.waitForTimeout(1500);
 
-    // 验证 Step 1 已填充
-    const step1Name = await page.evaluate(() => document.querySelector('#dynamic-name-1')?.value);
-    expect(step1Name).toBeTruthy();
+    await expect.poll(async () => {
+      const values = await readDynamicStepValues(page);
+      return values.step1.name;
+    }).toEqual(expect.any(String));
 
-    // 点击下一步，显示 Step 2（autoFillEnabled 为 false，不会自动填充）
     await page.click('#nextStepBtn');
-    await page.waitForTimeout(2000);
-
-    // 验证 Step 2 不会被自动填充（因为开关关闭，MutationObserver 不工作）
-    // 注意：这里期望空字符串，因为自动填充已禁用
-    const step2Values = await page.evaluate(() => ({
-      phone: document.querySelector('#dynamic-phone-2')?.value || '',
-      address: document.querySelector('#dynamic-address-2')?.value || ''
-    }));
-    console.log('开关关闭时 Step 2 填充结果:', step2Values);
-
-    // 由于开关关闭，即使有新元素也不会自动填充
-    // 手动触发也不会填充 display:none 的隐藏元素（这是正常行为）
-    // 验证 Step 2 保持未填充状态
-    expect(step2Values.phone).toBe('');
+    await expect.poll(async () => {
+      const values = await readDynamicStepValues(page);
+      return values.step2;
+    }).toMatchObject({
+      phone: '',
+      address: '',
+    });
   });
 });

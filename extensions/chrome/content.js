@@ -50,7 +50,6 @@
     }
 
     // Get settings
-    const r = await storage.getSettings();
     const formSettings = r.formSettings;
     const set = (k) => formSettings[k] !== false;
     const { phoneFormat, customRules } = r;
@@ -92,10 +91,15 @@
                            el.classList?.contains('el-checkbox__input') ||
                            el.classList?.contains('el-select__wrapper') ||
                            el.classList?.contains('el-date-editor');
-      const style = el.style;
       const computedStyle = el.ownerDocument?.defaultView?.getComputedStyle(el);
-      const isHidden = (el.offsetParent === null && !inElementPlus) ||
-                     (computedStyle && computedStyle.display === 'none');
+      const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : { width: 0, height: 0 };
+      const hasBox = rect.width > 0 || rect.height > 0;
+      const isHidden = !inElementPlus && computedStyle && (
+        computedStyle.display === 'none' ||
+        computedStyle.visibility === 'hidden' ||
+        computedStyle.opacity === '0' ||
+        (!hasBox && computedStyle.position !== 'fixed')
+      );
       if (isHidden && type !== 'vue-select' && el.type !== 'file' && !inElementPlus) continue;
       if ((el.disabled || el.readOnly) && !el.classList.contains("flatpickr-input") && type !== 'vue-select') continue;
 

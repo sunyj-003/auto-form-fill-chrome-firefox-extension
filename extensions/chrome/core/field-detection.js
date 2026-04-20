@@ -88,7 +88,7 @@
 
   // Field type inference based on input type attribute
   function inferFromType(el) {
-    if (!el) return null;
+    if (!el) return 'text';
     const type = (el.type || 'text').toLowerCase();
 
     const typeMap = {

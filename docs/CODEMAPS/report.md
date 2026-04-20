@@ -1,7 +1,7 @@
 # Codemap 更新报告
 
 ## 扫描的文件
-- 源文件: 6 (extensions/chrome/*.js, extensions/firefox/*.js)
+- 源文件: 6 (extensions/chrome/*.js and modularized Chrome scripts)
 - 测试文件: 4 (tests/e2e/*.js)
 - 配置文件: 2 (package.json, .mcp.json)
 - HTML 文件: 14 (extensions + tests)
@@ -12,7 +12,7 @@
 - docs/CODEMAPS/dependencies.md
 
 ## 架构总结
-- **项目类型**: 浏览器扩展 (Chrome MV3 + Firefox MV2)
+- **项目类型**: 浏览器扩展 (Chrome MV3)
 - **语言**: Vanilla JavaScript
 - **依赖**: 无 (运行时), Playwright (开发)
 - **关键组件**: extensions/chrome/content.js (~1000 行) 处理表单检测、字段分类、假数据生成和字段填充

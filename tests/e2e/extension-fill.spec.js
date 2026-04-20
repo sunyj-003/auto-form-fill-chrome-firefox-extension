@@ -1,13 +1,11 @@
-// 扩展表单填充 E2E 测试
-// 运行: npx playwright test e2e/extension-fill.spec.js
+// 本地表单页面烟雾测试
+// 运行: npx playwright test tests/e2e/extension-fill.spec.js
 
 const { test, expect } = require('@playwright/test');
-const path = require('path');
 
-test.describe('Chrome Extension Form Fill', () => {
+test.describe('Local Form Smoke Tests', () => {
 
-  // 测试原生 HTML 表单
-  test('should fill native HTML form', async ({ page }) => {
+  test('should allow native form interactions on the lightweight test page', async ({ page }) => {
     await page.goto('data:text/html,<html><body><form>' +
       '<input id="name" placeholder="用户名">' +
       '<input id="email" type="email">' +
@@ -29,18 +27,11 @@ test.describe('Chrome Extension Form Fill', () => {
     await expect(page.locator('#agree')).toBeChecked();
   });
 
-  // 测试 Element Plus 表单 - 使用本地测试页面
-  test('should load Element Plus form', async ({ page }) => {
-    await page.goto('file://' + path.join(process.cwd(), 'tests/form-test/index.html'));
+  test('should load the demo form page from the local test server', async ({ page }) => {
+    await page.goto('/index.html');
     await page.waitForSelector('.el-select', { timeout: 15000 });
 
-    // 等待 Vue 渲染完成
-    await page.waitForTimeout(1000);
-
-    // 使用更精确的定位方式 - 通过 Element Plus 的特定类
     const elementPlusInput = page.locator('#elementPlusApp .el-input__inner').first();
     await expect(elementPlusInput).toBeVisible({ timeout: 5000 });
-
-    console.log('Element Plus form loaded successfully');
   });
 });

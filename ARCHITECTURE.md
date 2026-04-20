@@ -1,17 +1,41 @@
-# 架构设计方案 (分层 + 插件混合)
+# Chrome 架构现状与重构方向
+
+## 当前进展
+
+已完成：
+- Chrome-only 收敛，Firefox 代码已移除
+- `core/storage.js`：统一设置与文件存储访问
+- `core/context.js`：统一字段上下文提取
+- `core/events.js`：统一 DOM 写值与事件派发
+- `core/autofill.js`：统一持续自动填充控制器
+- `core/collector.js`：统一页面元素收集与 Shadow DOM 遍历
+- `core/adapter-registry.js`：统一适配器注册与页面框架探测入口
+- `generators/fakeData.js`：作为共享假数据生成模块参与加载
+
+当前仍未完成：
+- 原生字段填充主流程 `guessAndFillInput()` 仍在 `content.js`
+- 框架适配器尚未统一到单一 contract
+
+## 测试现状
+
+- `tests/unit/`: 以 Jest 为主，覆盖存储、选项页、弹窗和 collector 这类可纯逻辑验证的模块
+- `tests/e2e/Injected ...`: 用 mock `chrome` 和顺序注入 `manifest` 中的内容脚本模块，验证核心逻辑
+- `tests/e2e/Real ... Extension`: 仅在扩展项目下运行，验证真实扩展装载和页面注入
+- `tests/e2e/Manual ...`: 默认跳过，保留给人工验证外部登录态或第三方环境
+- Playwright 验收以页面最终可观测状态为准，优先使用 `expect.poll(...)` 对字段值、选中态和勾选态做持续校验，而不是依赖页面全局变量或固定 sleep
 
 ## 当前问题
 
 ```
-content.js: 1833 行
+content.js: 仍然承担主流程编排和大量填充逻辑
 ├── 数据生成 (80+ 行) - fakeName, fakeEmail, fakePhone...
 ├── 框架适配 (400+ 行) - Naive UI / Element Plus / Ant Design / React Select / Material UI / Select2
-├── 核心逻辑 (300+ 行) - collectFromRoot, guessAndFillInput, setValueAndNotify
-├── 存储/设置 (100+ 行) - chrome.storage 读写
-└── 入口/快捷键 (50+ 行)
+├── 核心逻辑 (300+ 行) - guessAndFillInput
+├── 已抽离到 core/ - storage/context/events/autofill/collector/adapter-registry
+└── 入口/快捷键/调度
 ```
 
-问题: 一个文件，耦合高，难维护，难测试。
+问题: 主文件仍偏大，collector/filler/adapter dispatch 还没完全解耦。
 
 ---
 
@@ -74,30 +98,13 @@ class NaiveUIPlugin {
 ```
 extensions/chrome/
 ├── content.js                    # 入口
-├── src/
-│   ├── adapters/                 # 适配器层 (每个 UI 框架)
-│   │   ├── index.js              # 适配器管理器
-│   │   ├── naive-ui.js           # Naive UI 适配器
-│   │   ├── element-plus.js
-│   │   ├── ant-design.js
-│   │   ├── react-select.js
-│   │   ├── material-ui.js
-│   │   └── native.js             # 原生 HTML
-│   │
-│   ├── generators/               # 数据生成层
-│   │   ├── index.js
-│   │   ├── types.js              # fillType → 生成器映射
-│   │   ├── fakes.js              # 假数据函数
-│   │   └── rules.js              # 自定义规则
-│   │
-│   ├── core/                     # 核心层
-│   │   ├── collector.js          # 收集表单元素
-│   │   ├── filler.js             # 填充调度
-│   │   └── notifier.js           # 事件触发
-│   │
-│   └── utils/                    # 工具层
-│       ├── timeout.js
-│       └── dom.js
+├── generators/                    # 数据生成层 (已实现)
+│   ├── fakeData.js               # 假数据函数 (content.js 和适配器共享)
+│   └── interface.js              # 适配器接口标准
+├── adapters/                      # 适配器层
+│   ├── naive-ui.js               # (已存在于 framework-adapters/)
+│   ├── element-plus.js
+│   └── native.js                 # 原生 HTML
 ```
 
 **特点:**

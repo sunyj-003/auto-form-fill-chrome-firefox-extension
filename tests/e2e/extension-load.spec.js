@@ -1,131 +1,72 @@
 /**
- * True Extension Loading Test using launchPersistentContext (M5.29)
- * This test actually loads the Chrome extension into a real browser context
- * Run: npx playwright test tests/e2e/extension-load.spec.js
+ * Real extension smoke tests.
+ * These tests only make sense when the browser is launched with the extension.
  */
 
-const { test, expect } = require('@playwright/test');
+const fs = require('fs');
 const path = require('path');
-
-const EXTENSION_PATH = path.resolve(__dirname, '../../extensions/chrome');
+const { test, expect } = require('./fixtures/extension-test');
+const { triggerShortcutFill } = require('./helpers/real-extension');
 
 test.describe('Chrome Extension Real Load Test', () => {
+  const screenshotDir = path.resolve(__dirname, '../../artifacts/test-report');
 
-  test('should launch browser with extension loaded', async ({ browser }) => {
-    const fs = require('fs');
-    const manifestPath = path.join(EXTENSION_PATH, 'manifest.json');
+  function ensureScreenshotDir() {
+    fs.mkdirSync(screenshotDir, { recursive: true });
+  }
 
-    expect(fs.existsSync(manifestPath)).toBe(true);
+  test('should keep extension globals isolated from the page world', async ({ page }) => {
+    await page.goto('/native-extension.html');
 
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    expect(manifest.manifest_version).toBe(3);
-    expect(manifest.name).toBeDefined();
-    expect(manifest.version).toBeDefined();
-
-    console.log('Extension manifest:', { name: manifest.name, version: manifest.version });
-  });
-
-  test('should validate extension structure', async () => {
-    const fs = require('fs');
-    const path = require('path');
-
-    const requiredFiles = [
-      'manifest.json',
-      'content.js',
-      'popup.html',
-      'popup.js',
-      'options.html',
-      'options.js'
-    ];
-
-    for (const file of requiredFiles) {
-      const filePath = path.join(EXTENSION_PATH, file);
-      expect(fs.existsSync(filePath)).toBe(true);
-    }
-
-    const generatorsPath = path.join(EXTENSION_PATH, 'generators');
-    expect(fs.existsSync(generatorsPath)).toBe(true);
-
-    const fakeDataPath = path.join(generatorsPath, 'fakeData.js');
-    expect(fs.existsSync(fakeDataPath)).toBe(true);
-
-    const adaptersDir = path.join(EXTENSION_PATH, 'framework-adapters');
-    expect(fs.existsSync(adaptersDir)).toBe(true);
-
-    console.log('Extension structure validation passed');
-  });
-
-  test('should verify content.js exposes required APIs', async ({ page }) => {
-    await page.goto('data:text/html,<html><body><input id="test" /></body></html>');
-
-    const contentJsCode = require('fs').readFileSync('./extensions/chrome/content.js', 'utf8');
-    const fakeDataCode = require('fs').readFileSync('./extensions/chrome/generators/fakeData.js', 'utf8');
-
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test-extension' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({
-            formSettings: { name: true, email: true, phone: true },
-            customRules: [], phoneFormat: 'local'
-          }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: fakeDataCode });
-    await page.addScriptTag({ content: contentJsCode });
-
-    await page.waitForTimeout(300);
-
-    const apis = await page.evaluate(() => ({
-      hasFakeFill: typeof window.__bengaliFakeFill === 'function',
-      hasFakeData: typeof window.__BengaliFakeData__ !== 'undefined',
-      hasStorage: typeof window.__BengaliStorage__ !== 'undefined',
-      hasFieldDetection: typeof window.__BengaliFieldDetection__ !== 'undefined'
+    const globals = await page.evaluate(() => ({
+      fakeFill: typeof window.__bengaliFakeFill,
+      storageApi: typeof window.__BengaliStorage__,
+      fieldDetection: typeof window.__BengaliFieldDetection__,
     }));
 
-    console.log('Extension APIs:', apis);
-    expect(apis.hasFakeFill).toBe(true);
-    expect(apis.hasFakeData).toBe(true);
-    expect(apis.hasStorage).toBe(true);
-    expect(apis.hasFieldDetection).toBe(true);
+    expect(globals).toEqual({
+      fakeFill: 'undefined',
+      storageApi: 'undefined',
+      fieldDetection: 'undefined',
+    });
   });
 
-  test('should verify popup can access storage', async ({ page }) => {
-    await page.goto('data:text/html,<html><body><div id="status"></div></body></html>');
+  test('should fill a native form using the loaded extension', async ({ page }) => {
+    await page.goto('/native-extension.html');
+    await triggerShortcutFill(page);
 
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test-extension' },
-        storage: {
-          sync: {
-            get: (keys, callback) => {
-              setTimeout(() => callback({
-                formSettings: { name: true, email: true },
-                phoneFormat: 'local',
-                shortcutEnabled: true,
-                autoFillEnabled: false,
-                customRules: []
-              }), 0);
-            }
-          }
-        }
-      };
-    `});
-
-    const storageResult = await page.evaluate(async () => {
-      return new Promise((resolve) => {
-        chrome.storage.sync.get(['formSettings', 'phoneFormat'], (result) => {
-          resolve(result);
-        });
-      });
+    await expect.poll(async () => {
+      return page.evaluate(() => ({
+        username: document.querySelector('#native-username')?.value || '',
+        email: document.querySelector('#native-email')?.value || '',
+        phone: document.querySelector('#native-phone')?.value || '',
+        website: document.querySelector('#native-website')?.value || '',
+        agree: document.querySelector('#native-agree')?.checked || false,
+        country: document.querySelector('#native-country')?.value || '',
+      }));
+    }).toMatchObject({
+      agree: true,
     });
 
-    console.log('Popup storage access:', storageResult);
-    expect(storageResult.formSettings).toBeDefined();
-    expect(storageResult.phoneFormat).toBe('local');
+    const results = await page.evaluate(() => ({
+      username: document.querySelector('#native-username')?.value || '',
+      email: document.querySelector('#native-email')?.value || '',
+      phone: document.querySelector('#native-phone')?.value || '',
+      website: document.querySelector('#native-website')?.value || '',
+      agree: document.querySelector('#native-agree')?.checked || false,
+      country: document.querySelector('#native-country')?.value || '',
+    }));
+
+    expect(results.username).toBeTruthy();
+    expect(results.email).toMatch(/@/);
+    expect(results.phone).toMatch(/^01\d{10}$/);
+    expect(results.website).toMatch(/^https?:\/\//);
+    expect(results.country).toBeTruthy();
+    expect(results.agree).toBe(true);
+
+    ensureScreenshotDir();
+    await page.locator('body').screenshot({
+      path: path.join(screenshotDir, 'real-extension-native-filled.png'),
+    });
   });
 });

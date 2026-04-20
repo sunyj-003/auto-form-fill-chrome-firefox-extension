@@ -11,7 +11,7 @@ const {
   sortByPriority,
   inferFromType,
   extractLabel,
-} = require('./field-detection');
+} = require('../../extensions/chrome/core/field-detection');
 
 describe('Field Detection', () => {
   describe('SENSITIVE_FIELDS', () => {

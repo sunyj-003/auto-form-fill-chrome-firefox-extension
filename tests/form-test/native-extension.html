@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Native Extension Test Page</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 24px;
+      background: #f7f7f7;
+    }
+    form {
+      max-width: 720px;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <form>
+    <div class="row">
+      <div>
+        <label for="native-username">Username</label>
+        <input id="native-username" type="text" placeholder="Enter username">
+      </div>
+      <div>
+        <label for="native-email">Email</label>
+        <input id="native-email" type="email" placeholder="name@example.com">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="native-phone">Phone</label>
+        <input id="native-phone" type="tel" placeholder="01XXXXXXXXXX">
+      </div>
+      <div>
+        <label for="native-website">Website</label>
+        <input id="native-website" type="url" placeholder="https://example.com">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="native-country">Country</label>
+        <select id="native-country">
+          <option value="">Choose one</option>
+          <option value="bd">Bangladesh</option>
+          <option value="cn">China</option>
+          <option value="us">United States</option>
+        </select>
+      </div>
+      <div>
+        <label>
+          <input id="native-agree" type="checkbox">
+          I agree to the terms
+        </label>
+      </div>
+    </div>
+  </form>
+</body>
+</html>

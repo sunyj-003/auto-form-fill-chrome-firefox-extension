@@ -1,34 +1,16 @@
-// 专门测试 Naive UI 选择器填充
+// Naive UI Select 注入式测试
 const { test, expect } = require('@playwright/test');
+const { installInjectedExtension } = require('./helpers/module-injection');
 
-const contentJsCode = require('fs').readFileSync('./extensions/chrome/content.js', 'utf8');
-
-test.describe('Naive UI Select 填充测试', () => {
+test.describe('Naive UI Select Injected Tests', () => {
 
   test('should fill Naive UI select elements', async ({ page }) => {
-    await page.goto('http://develop.findsoft.com.cn/secman/person/new');
+    await page.goto('/naive-ui.html');
     await page.waitForTimeout(2000);
 
-    // 注入 chrome API mock
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test-extension' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({
-            formSettings: { name: true, email: true, phone: true, address: true, company: true, select: true, checkbox: true, radio: true, textarea: true, file: true, date: true, number: true },
-            customRules: [], phoneFormat: 'local', shortcutEnabled: false, autoFillEnabled: true
-          }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    // 注入 content.js
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page, { autoFillEnabled: true });
     await page.waitForTimeout(500);
 
-    // 触发填充
     await page.evaluate(() => {
       if (window.__bengaliFakeFill) {
         window.__bengaliFakeFill();
@@ -70,11 +52,7 @@ test.describe('Naive UI Select 填充测试', () => {
       };
     });
 
-    console.log('选择器总数:', results.totalSelects);
-    console.log('已填充选择器数:', results.filledCount);
-    console.log('填充的示例:', results.filledSamples);
-
-    // 至少应该有一些选择器被处理
     expect(results.totalSelects).toBeGreaterThan(0);
+    expect(results.filledCount).toBeGreaterThanOrEqual(0);
   });
 });

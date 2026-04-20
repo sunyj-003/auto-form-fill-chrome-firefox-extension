@@ -268,6 +268,27 @@
     .rule-item .pattern { flex: 1; word-break: break-all; color: var(--text); }
     .rule-item .arrow { color: var(--text-muted); font-size: .75rem; }
     .rule-item .fillType { color: var(--accent); font-weight: 500; min-width: 70px; }
+    .site-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .site-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background: rgba(0,0,0,.2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .875rem;
+    }
+    .site-item code { word-break: break-all; }
+    .site-empty {
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: .875rem;
+      background: rgba(255,255,255,.02);
+    }
 
     .footer-actions { text-align: center; padding-top: 16px; }
     .footer-actions .btn { font-size: .8125rem; }
@@ -369,6 +390,18 @@
           </select>
         </div>
         <p class="setting-hint" style="margin-top:6px">Default is Bangladeshi local. Change here to use +88 format.</p>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h2 class="card-title">
+          <span class="icon" aria-hidden="true">🚫</span>
+          Site Exclusions
+        </h2>
+        <p class="setting-hint" style="margin-top:0;margin-bottom:16px">Add domains where the extension should never auto-fill. You can enter a bare host like <code>example.com</code> or paste a full URL.</p>
+        <div class="add-rule-form">
+          <input type="text" id="excludedSiteInput" placeholder="example.com or https://app.example.com/form" maxlength="200" aria-label="Excluded site" />
+          <button type="button" id="addExcludedSite" class="btn btn-primary">Add site</button>
+        </div>
+        <div id="excludedSitesList" class="site-list"></div>
       </div>
       <div class="card" style="margin-top:20px">
         <h2 class="card-title">
@@ -480,6 +513,7 @@
     <span id="toastMessage">Saved</span>
   </div>
 
+  <script src="core/storage.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

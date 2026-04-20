@@ -3,100 +3,17 @@
  * Handles n-input, n-select, n-checkbox, n-radio, n-date-picker components
  */
 (function() {
-  // Fake data generators (same as content.js)
-  const firstNames = [
-    "Rahim", "Karim", "Jamal", "Kamal", "Shamim", "Rafiq", "Nazmul", "Faruk", "Imran", "Sajid",
-    "Ayesha", "Sharmin", "Shamima", "Farhana", "Nusrat", "Jannat", "Mahi", "Runa", "Salma", "Rashida"
-  ];
-  const lastNames = [
-    "Uddin", "Ahmed", "Islam", "Hossain", "Rahman", "Chowdhury", "Miah", "Sarkar", "Talukder", "Biswas"
-  ];
-  const streets = [
-    "Mirpur Road", "Dhanmondi 27", "Banani 11", "Gulshan 2", "Uttara Sector 4",
-    "Chawk Bazar", "Agrabad", "Kumarpara", "Zindabazar", "New Market Road"
-  ];
-  const cities = ["Dhaka", "Chattogram", "Sylhet", "Khulna", "Rajshahi", "Barishal", "Rangpur", "Mymensingh"];
-  const companies = [
-    "Dhaka Soft Ltd", "Bangla Tech Solutions", "Padma Group", "Jamdani IT", "Sundarban Logistics"
-  ];
+  const helpers = window.__BengaliAdapterHelpers__;
+  const fakeData = helpers.getFakeDataApi();
 
-  function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-  function fakeName() { return rand(firstNames) + " " + rand(lastNames); }
-  function fakeAddress() { return randInt(10, 999) + " " + rand(streets) + ", " + rand(cities); }
-  function fakeCity() { return rand(cities); }
-  function fakePostcode() { return String(randInt(1200, 9999)); }
-  function fakePhone() {
-    const ops = ["13", "14", "15", "16", "17", "18", "19"];
-    const op = rand(ops);
-    let rest = "";
-    for (let i = 0; i < 8; i++) rest += randInt(0, 9);
-    return "+8801" + op + rest.substring(0, 8);
-  }
-  function fakePhoneLocal() {
-    const ops = ["13", "14", "15", "16", "17", "18", "19"];
-    const op = rand(ops);
-    let rest = "";
-    for (let i = 0; i < 8; i++) rest += randInt(0, 9);
-    return "01" + op + rest.substring(0, 8);
-  }
-  function fakeEmail(name) {
-    const clean = (name || "user").toLowerCase().replace(/[^a-z]/g, ".");
-    const domains = ["mail.com", "example.com", "bdmail.com", "demo.net"];
-    return clean + randInt(10, 999) + "@" + rand(domains);
-  }
-
-  function fakeDateISO() {
-    const start = new Date(2000, 0, 1);
-    const end = new Date(2018, 11, 31);
-    const d = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return d.getFullYear() + "-" + m + "-" + day;
-  }
-
-  function fakeBirthDateISO() {
-    const start = new Date(1995, 0, 1);
-    const end = new Date(2015, 11, 31);
-    const d = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return d.getFullYear() + "-" + m + "-" + day;
-  }
-
-  function fakePassword() {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars[randInt(0, chars.length - 1)];
+  function generateFakeData(type, contextText = '') {
+    if (type === 'birthDate' && typeof fakeData.fakeBirthDateISO === 'function') {
+      return fakeData.fakeBirthDateISO();
     }
-    return password;
-  }
-
-  function fakeURL() {
-    const domains = ["example.com", "demo.com", "test.org", "site.net"];
-    const paths = ["", "/page", "/home", "/about", "/contact"];
-    return "https://" + rand(domains) + rand(paths);
-  }
-
-  // Generate fake data based on type
-  function generateFakeData(type) {
-    switch (type) {
-      case 'name': return fakeName();
-      case 'email': return fakeEmail();
-      case 'phone': return fakePhone();
-      case 'phone-local': return fakePhoneLocal();
-      case 'address': return fakeAddress();
-      case 'city': return fakeCity();
-      case 'company': return rand(companies);
-      case 'date': return fakeDateISO();
-      case 'birthDate': return fakeBirthDateISO();
-      case 'password': return fakePassword();
-      case 'url': return fakeURL();
-      case 'text': return fakeName(); // default
-      default: return fakeName();
+    if (typeof fakeData.getValueByType === 'function') {
+      return fakeData.getValueByType(type === 'text' ? 'name' : type, contextText, {});
     }
+    return helpers.getValueForContext(contextText, type);
   }
   // Export to window for content.js to use
   window.__naiveUIAdapter = {
@@ -229,37 +146,13 @@
     if (!input) return false;
 
     const context = window.__naiveUIAdapter.getFieldContext(el);
-    let value;
-
-    // Generate appropriate fake data based on context
-    if (/name|first.*name|full.*name/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('name');
-    } else if (/email/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('email');
-    } else if (/phone|mobile|tel/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('phone');
-    } else if (/address/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('address');
-    } else if (/city/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('city');
-    } else if (/company|organization/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('company');
-    } else if (/password/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('password');
-    } else if (/url|website/i.test(context.label + context.fieldName)) {
-      value = generateFakeData('url');
-    } else {
-      value = generateFakeData('text');
-    }
+    const value = helpers.getValueForContext(context.label + ' ' + context.fieldName, 'text');
 
     // Set value and dispatch events
-    input.value = value;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    helpers.setInputLikeValue(input, value);
 
     // Visual feedback
-    input.classList.add('bengali-fake-filled');
-    setTimeout(() => input.classList.remove('bengali-fake-filled'), 1000);
+    helpers.highlightElement(input);
 
     return true;
   }
@@ -324,8 +217,7 @@
         selectedOption.click();
 
         // Visual feedback
-        trigger.classList.add('bengali-fake-filled');
-        setTimeout(() => trigger.classList.remove('bengali-fake-filled'), 1000);
+        helpers.highlightElement(trigger);
       }
     }, 100);
 
@@ -345,8 +237,7 @@
     }
 
     // Visual feedback
-    el.classList.add('bengali-fake-filled');
-    setTimeout(() => el.classList.remove('bengali-fake-filled'), 1000);
+    helpers.highlightElement(el);
 
     return true;
   }
@@ -359,8 +250,7 @@
       if (!el.checked) {
         el.click();
       }
-      el.classList.add('bengali-fake-filled');
-      setTimeout(() => el.classList.remove('bengali-fake-filled'), 1000);
+      helpers.highlightElement(el);
       return true;
     }
 
@@ -372,8 +262,7 @@
       if (!randomRadio.checked) {
         randomRadio.click();
       }
-      randomRadio.classList.add('bengali-fake-filled');
-      setTimeout(() => randomRadio.classList.remove('bengali-fake-filled'), 1000);
+      helpers.highlightElement(randomRadio);
     }
 
     return true;
@@ -401,9 +290,7 @@
       // Try to find date input and set value
       const dateInput = document.querySelector('.n-date-panel-date-input, input[type="text"]');
       if (dateInput) {
-        dateInput.value = dateValue;
-        dateInput.dispatchEvent(new Event('input', { bubbles: true }));
-        dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        helpers.setInputLikeValue(dateInput, dateValue);
       }
 
       // Click outside to close
@@ -411,10 +298,13 @@
     }, 100);
 
     // Visual feedback
-    trigger.classList.add('bengali-fake-filled');
-    setTimeout(() => trigger.classList.remove('bengali-fake-filled'), 1000);
+    helpers.highlightElement(trigger);
 
     return true;
+  }
+
+  if (window.__BengaliFakeFillAdapterAPI__) {
+    window.__BengaliFakeFillAdapterAPI__.registerAdapter(window.__naiveUIAdapter);
   }
 
   console.log('[NaiveUI Adapter] Loaded v1.0.0');

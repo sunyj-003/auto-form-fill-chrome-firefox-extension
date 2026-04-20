@@ -1,40 +1,31 @@
-// 主流前端框架表单填充 E2E 测试
-// 运行: npx playwright test e2e/form-test.spec.js
+// 主流前端框架注入式模块测试
+// 运行: npx playwright test tests/e2e/form-test.spec.js
 
+const fs = require('fs');
+const path = require('path');
 const { test, expect } = require('@playwright/test');
+const { installInjectedExtension } = require('./helpers/module-injection');
 
-const contentJsCode = require('fs').readFileSync('./extensions/chrome/content.js', 'utf8');
+test.describe('Injected Module Form Tests', () => {
+  const screenshotDir = path.resolve(__dirname, '../../artifacts/test-report');
 
-test.describe('主流前端框架表单填充', () => {
+  function ensureScreenshotDir() {
+    fs.mkdirSync(screenshotDir, { recursive: true });
+  }
 
   test('should fill native HTML form', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#native-username');
 
-    // 填充前截图
-    await page.screenshot({ path: 'test-results/before-fill.png' });
-
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test-extension' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({
-            formSettings: { name: true, email: true, phone: true, address: true, company: true, select: true, checkbox: true, radio: true, textarea: true, file: true, date: true },
-            customRules: [], phoneFormat: 'local', shortcutEnabled: false
-          }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page, {
+      formSettings: {
+        password: true,
+      },
+    });
     await page.waitForTimeout(300);
+
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(1500);
-
-    // 填充后截图 - 验证视觉上是否有内容
-    await page.screenshot({ path: 'test-results/after-fill.png', fullPage: true });
 
     const results = await page.evaluate(() => ({
       username: document.querySelector('#native-username')?.value || '',
@@ -59,42 +50,28 @@ test.describe('主流前端框架表单填充', () => {
     expect(results.bio).toBeTruthy();    // textarea
     expect(results.agree).toBe(true);    // checkbox
     expect(results.gender).toBeTruthy();  // radio
+
+    ensureScreenshotDir();
+    await page.locator('.native-form').screenshot({
+      path: path.join(screenshotDir, 'native-form-filled.png'),
+    });
   });
 
   test('should fill Element Plus form', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.el-input', { timeout: 15000 });
 
-    // 填充前截图
-    await page.screenshot({ path: 'test-results/element-plus-before.png' });
-
     page.on('console', msg => {
-      if (msg.text().includes('el-date') || msg.text().includes('birthday') || msg.text().includes('processElement') || msg.text().includes('wrapper') || msg.text().includes('panel') || msg.text().includes('cells')) {
-        console.log('PAGE:', msg.text());
+      const text = msg.text();
+      if (text.includes('Collected') || text.includes('Processing') || text.includes('Adapter') || text.includes('[Bengali')) {
+        console.log('PAGE:', text);
       }
     });
 
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({
-            formSettings: { name: true, email: true, phone: true, select: true, date: true, checkbox: true, radio: true, textarea: true },
-            customRules: [], phoneFormat: 'local'
-          }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page);
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(3000);
-
-    // 填充后截图 - 视觉验证
-    await page.screenshot({ path: 'test-results/element-plus-after.png', fullPage: true });
 
     const elResults = await page.evaluate(() => {
       const app = document.querySelector('#elementPlusApp');
@@ -125,21 +102,10 @@ test.describe('主流前端框架表单填充', () => {
   });
 
   test('should fill native select dropdown', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#native-country');
 
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({ formSettings: { select: true }, customRules: [] }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page, { formSettings: { select: true } });
     await page.waitForTimeout(300);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(1500);
@@ -153,33 +119,13 @@ test.describe('主流前端框架表单填充', () => {
   });
 
   test('should fill Ant Design Vue form (native inputs)', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#antd-username', { timeout: 15000 });
 
-    // 填充前截图
-    await page.screenshot({ path: 'test-results/antd-before.png' });
-
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({
-            formSettings: { name: true, email: true, phone: true, select: true, checkbox: true },
-            customRules: [], phoneFormat: 'local'
-          }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page);
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(2000);
-
-    // 填充后截图 - 视觉验证
-    await page.screenshot({ path: 'test-results/antd-after.png', fullPage: true });
 
     const antdResults = await page.evaluate(() => ({
       username: document.querySelector('#antd-username')?.value || '',
@@ -201,21 +147,10 @@ test.describe('主流前端框架表单填充', () => {
   });
 
   test('should fill jQuery Select2', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForTimeout(2000); // 等待 Select2 初始化
 
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({ formSettings: { select: true }, customRules: [] }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page, { formSettings: { select: true } });
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(2000);
@@ -230,30 +165,13 @@ test.describe('主流前端框架表单填充', () => {
   });
 
   test('should fill Material UI form', async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/tests/form-test/index.html');
+    await page.goto('/index.html');
     await page.waitForSelector('#mui-username', { timeout: 15000 });
 
-    // 填充前截图
-    await page.screenshot({ path: 'test-results/mui-before.png' });
-
-    await page.addScriptTag({ content: `
-      window.chrome = {
-        runtime: { id: 'test' },
-        storage: {
-          sync: { get: (k, cb) => setTimeout(() => cb({ formSettings: { name: true, email: true, phone: true, select: true }, customRules: [] }), 0) },
-          local: { get: (k, cb) => setTimeout(() => cb({}), 0) },
-          onChanged: { addListener: () => {} }
-        }
-      };
-    `});
-
-    await page.addScriptTag({ content: contentJsCode });
+    await installInjectedExtension(page);
     await page.waitForTimeout(300);
     await page.evaluate(() => window.__bengaliFakeFill && window.__bengaliFakeFill());
     await page.waitForTimeout(1500);
-
-    // 填充后截图 - 视觉验证
-    await page.screenshot({ path: 'test-results/mui-after.png', fullPage: true });
 
     const muiResults = await page.evaluate(() => ({
       username: document.querySelector('#mui-username')?.value || '',

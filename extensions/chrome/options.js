@@ -29,6 +29,7 @@ async function load() {
 
   const phoneFormatEl = document.getElementById('phoneFormat');
   if (phoneFormatEl) phoneFormatEl.value = settings.phoneFormat;
+  renderExcludedSites(settings.excludedSites);
 
   FORM_KEYS.forEach(k => {
     const t = document.getElementById('t_' + k);
@@ -114,6 +115,33 @@ function renderRules(rules) {
   });
 }
 
+function renderExcludedSites(sites) {
+  const list = document.getElementById('excludedSitesList');
+  if (!list) return;
+  if (!sites || sites.length === 0) {
+    list.innerHTML = '<div class="site-empty">No excluded sites yet.</div>';
+    return;
+  }
+  list.innerHTML = sites.map((site) => `
+    <div class="site-item" data-site="${escapeHtml(site)}">
+      <code>${escapeHtml(site)}</code>
+      <button type="button" class="btn btn-danger delExcludedSite" data-site="${escapeHtml(site)}" aria-label="Remove excluded site">Remove</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.delExcludedSite').forEach((btn) => {
+    btn.onclick = async () => {
+      const site = btn.dataset.site;
+      try {
+        await storage.removeExcludedSite(site);
+        await load();
+        showToast('Site removed');
+      } catch (err) {
+        showToast('Remove failed');
+      }
+    };
+  });
+}
+
 function escapeHtml(s) {
   const div = document.createElement('div');
   div.textContent = s;
@@ -180,7 +208,7 @@ FORM_KEYS.forEach(k => {
   const chip = t?.closest('.field-chip');
   if (!t) return;
   const toggle = async () => {
-    const on = !t.classList.toggle('on');
+    const on = t.classList.toggle('on');
     t.setAttribute('aria-checked', on);
     try {
       await storage.updateFormSettings({ [k]: on });
@@ -204,6 +232,8 @@ const addBtn = document.getElementById('addRule');
 const patternInput = document.getElementById('rulePattern');
 const ruleTypeSelect = document.getElementById('ruleType');
 const ruleRegexCheckbox = document.getElementById('ruleRegex');
+const excludedSiteInput = document.getElementById('excludedSiteInput');
+const addExcludedSiteBtn = document.getElementById('addExcludedSite');
 if (addBtn && patternInput && ruleTypeSelect) {
   addBtn.addEventListener('click', async () => {
     const pattern = patternInput.value.trim();
@@ -234,6 +264,36 @@ if (addBtn && patternInput && ruleTypeSelect) {
     }
   });
   patternInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+}
+
+if (addExcludedSiteBtn && excludedSiteInput) {
+  const saveExcludedSite = async () => {
+    const raw = excludedSiteInput.value.trim();
+    if (!raw) {
+      showToast('Site cannot be empty');
+      return;
+    }
+    const normalized = storage.normalizeExcludedSite ? storage.normalizeExcludedSite(raw) : raw;
+    if (!normalized) {
+      showToast('Invalid site');
+      return;
+    }
+    try {
+      await storage.addExcludedSite(raw);
+      excludedSiteInput.value = '';
+      await load();
+      showToast('Site excluded');
+    } catch (err) {
+      showToast('Save failed');
+    }
+  };
+  addExcludedSiteBtn.addEventListener('click', saveExcludedSite);
+  excludedSiteInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveExcludedSite();
+    }
+  });
 }
 
 // ——— Reset: modal ———
