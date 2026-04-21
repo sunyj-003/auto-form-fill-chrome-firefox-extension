@@ -92,6 +92,29 @@ describe('fill.js', () => {
     expect(fill.formatDateForConstraint('20240102')).toMatch(/^\d{8}$/);
   });
 
+  test('detects runtime date constraints on text inputs', () => {
+    document.body.innerHTML = '<input id="date-like" type="text" placeholder="日期" />';
+    const el = document.getElementById('date-like');
+
+    el.addEventListener('input', () => {
+      const cleaned = String(el.value || '').replace(/[^\d-]/g, '').slice(0, 10);
+      const m = cleaned.match(/^(\d{0,4})(?:-?(\d{0,2}))?(?:-?(\d{0,2}))?$/);
+      if (!m) {
+        el.value = '';
+        return;
+      }
+      const [, y = '', mm = '', dd = ''] = m;
+      const first = y;
+      const second = mm ? `-${mm}` : '';
+      const third = dd ? `-${dd}` : '';
+      el.value = `${first}${second}${third}`;
+    });
+
+    const result = fill.detectInputConstraint(el);
+    expect(result.kind).toBe('date');
+    expect(result.source).toBe('runtime-probe');
+  });
+
   test('skips low-confidence generic text inputs', () => {
     document.body.innerHTML = '<input id="generic" type="text" placeholder="请输入" />';
     const el = document.getElementById('generic');

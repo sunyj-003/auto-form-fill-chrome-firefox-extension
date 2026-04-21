@@ -33,6 +33,54 @@
     return containers.find((el) => isVisibleElement(el) && el.querySelector('.n-base-select-option, .n-select-option, .n-option'));
   }
 
+  function normalizeText(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getFrameworkSelectedText(framework, container) {
+    if (!container) return '';
+    if (framework === 'ant') {
+      const node = container.querySelector('.ant-select-selection-item, .ant-select-selection-search input');
+      return normalizeText(node?.value || node?.textContent);
+    }
+    if (framework === 'react') {
+      const node = container.querySelector('.react-select__single-value, .react-select__placeholder, input');
+      return normalizeText(node?.value || node?.textContent);
+    }
+    if (framework === 'element') {
+      const node = container.querySelector('.el-select__selected-item, .el-input__inner, .el-select__placeholder');
+      return normalizeText(node?.value || node?.textContent);
+    }
+    return '';
+  }
+
+  async function pickWithVerification({ framework, trigger, optionsQuery, container, maxAttempts = 14 }) {
+    if (!trigger) return false;
+    const beforeText = getFrameworkSelectedText(framework, container);
+    trigger.click();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 180 : 120));
+      const options = Array.from(optionsQuery())
+        .filter((o) => isVisibleElement(o));
+      if (!options.length) continue;
+      const pool = options.filter((o) => !/select|choose|pick|请选择/i.test(normalizeText(o.textContent)));
+      const pick = rand(pool.length ? pool : options);
+      const choiceText = normalizeText(pick.textContent);
+      pick.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+      pick.click();
+      pick.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+
+      for (let verify = 0; verify < 8; verify++) {
+        await new Promise((resolve) => setTimeout(resolve, 70));
+        const afterText = getFrameworkSelectedText(framework, container);
+        if ((afterText && afterText !== beforeText) || (choiceText && afterText.includes(choiceText))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   async function selectNaiveOption(nSelect, clickTarget) {
     const beforeText = getNaiveSelectedText(nSelect);
     clickTarget.click();
@@ -107,16 +155,11 @@
     if (antSel && !antSel.classList.contains("ant-select-disabled")) {
       const selector = antSel.querySelector(".ant-select-selector");
       if (selector) {
-        return new Promise(resolve => {
-          selector.click();
-          const tryPick = (attempt = 0) => {
-            if (attempt > 12) { resolve(); return; }
-            const items = document.querySelectorAll(".ant-select-dropdown .ant-select-item:not(.ant-select-item-disabled)");
-            const vis = Array.from(items).filter(o => o.getBoundingClientRect().height > 0);
-            if (vis.length > 0) { rand(vis).click(); setTimeout(resolve, 80); return; }
-            setTimeout(() => tryPick(attempt + 1), 120);
-          };
-          setTimeout(() => tryPick(0), 150);
+        return pickWithVerification({
+          framework: 'ant',
+          trigger: selector,
+          container: antSel,
+          optionsQuery: () => document.querySelectorAll(".ant-select-dropdown .ant-select-item:not(.ant-select-item-disabled)"),
         });
       }
     }
@@ -126,16 +169,11 @@
     if (reactSel) {
       const control = reactSel.querySelector(".react-select__control");
       if (control) {
-        return new Promise(resolve => {
-          control.click();
-          const tryPick = (attempt = 0) => {
-            if (attempt > 12) { resolve(); return; }
-            const opts = document.querySelectorAll(".react-select__menu .react-select__option:not([class*='disabled'])");
-            const vis = Array.from(opts).filter(o => o.getBoundingClientRect().height > 0);
-            if (vis.length > 0) { rand(vis).click(); setTimeout(resolve, 80); return; }
-            setTimeout(() => tryPick(attempt + 1), 120);
-          };
-          setTimeout(() => tryPick(0), 150);
+        return pickWithVerification({
+          framework: 'react',
+          trigger: control,
+          container: reactSel,
+          optionsQuery: () => document.querySelectorAll(".react-select__menu .react-select__option:not([class*='disabled'])"),
         });
       }
     }
@@ -145,25 +183,15 @@
     if (elSelect && !elSelect.classList.contains("is-disabled")) {
       const wrapper = elSelect.querySelector(".el-input__wrapper");
       if (wrapper) {
-        return new Promise(resolve => {
-          wrapper.click();
-          const tryPick = (attempt = 0) => {
-            if (attempt > 12) { resolve(); return; }
+        return pickWithVerification({
+          framework: 'element',
+          trigger: wrapper,
+          container: elSelect,
+          optionsQuery: () => {
             const dropdown = document.querySelector(".el-select-dropdown.el-popper:not(.is-hidden)");
-            if (!dropdown) { setTimeout(() => tryPick(attempt + 1), 120); return; }
-            const items = dropdown.querySelectorAll(".el-select-dropdown__item:not(.is-disabled)");
-            const vis = Array.from(items).filter(o => {
-              const r = o.getBoundingClientRect();
-              return r.width > 2 && r.height > 2 && window.getComputedStyle(o).display !== 'none';
-            });
-            if (vis.length > 0) {
-              rand(vis).click();
-              setTimeout(resolve, 80);
-              return;
-            }
-            setTimeout(() => tryPick(attempt + 1), 120);
-          };
-          setTimeout(() => tryPick(0), 150);
+            if (!dropdown) return [];
+            return dropdown.querySelectorAll(".el-select-dropdown__item:not(.is-disabled)");
+          },
         });
       }
     }
